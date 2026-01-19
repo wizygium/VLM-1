@@ -1,5 +1,6 @@
-# Virtual environment
-.venv/
+# Environment Variables
+.env
+.env.example
 
 # Video files
 *.mp4
