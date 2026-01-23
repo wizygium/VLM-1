@@ -16,44 +16,88 @@ from google.genai import types
 
 # --- Configuration ---
 CACHE_TTL_SECONDS = 3600 # 1 hour
-MODEL_NAME = "gemini-1.5-pro-002" # Caching robust model. User suggested 3-pro, but 1.5-pro is standard for caching. I'll make it configurable.
+MODEL_NAME = "gemini-1.5-pro-001" # Caching robust model.
 
 # --- Modular Prompts (The "Brain") ---
 # We split the complexity of gemini_context_zones.md into distinct steps
+# --- Modular Prompts (The "Brain") ---
 ANALYSIS_TASKS = {
-    # Step 1: Establish Ground Truth
-    "1_setup": """
-    TASK: SETUP & CONTEXT
-    1. Identify the Attacking Team (Color) and Defending Team (Color).
-    2. Determine the direction of play.
-    3. Perform an "Initial Roll Call": List visible Attacking Roles (LW, LB, CB, RB, RW, PV) and their starting Zones.
+    # Step 0: Verification (Technical)
+    "0_verify": """
+    TASK: CONFIGURATION VERIFICATION
+    1. Identify the video sampling rate (FPS) you are currently using.
+    2. Confirm high spatial resolution (1120 tokens/frame).
+    3. State if jersey numbers and ball textures are clearly visible.
     """,
 
-    # Step 2: Defensive Structure (NEW)
-    "2_defense_structure": """
-    TASK: DEFENSIVE STRUCTURE & DEPTH
-    Analyze the defensive structure details.
-    1. **Defender Depth**: For each visible defender, be precise:
-       - Are they standing **right on the 6m line**?
-       - Have they **stepped out** (e.g. to 7-8m)? If so, did they leave a **gap behind them**?
-       - Are they standing out near the **9m line**?
-    2. **Formation**: Identify the overall shape (e.g. 6-0 flat, 5-1 aggressive).
+    # Layer 1: Roster & Geometry Lock (Static Truth)
+    "1_roster_lock": """
+    TASK: ROSTER & GEOMETRY LOCK
+    Objective: Define the IMMUTABLE truths of the scene at T=0.
+    1. **Attacking Roster**: List the 6 attackers (White/Japan). Assign a permanent ROLE (LW, LB, CB, RB, RW, PV) to each *visible* jersey number.
+    2. **Defensive Roster**: List visible defenders (Blue/Argentina) and their starting Zones.
+       - Use Standard Naming: DL1, DL2, DL3, DR3, DR2, DR1.
+    3. **Geometry**: Identify the Goal Area Line (6m) and Free Throw Line (9m).
     """,
 
-    # Step 3: The Action Timeline
-    "3_timeline": """
-    TASK: EVENT TIMELINE
-    Create a precise chronological log of all ball events and significant off-ball movements.
-    - Timestamp every event.
-    - Track the Ball: Who passes to whom? (e.g. "CB passes to RB").
-    - Track Off-Ball Cuts: Does a player move into the line without the ball? (e.g. "CB cuts to Zone 3 becoming PV2").
-    - Verfiy "Fake Passes": Do not log a pass if the player retains the ball.
+    # Layer 2: Ball State Timeline (Physics Only)
+    "2_ball_state": """
+    TASK: BALL STATE TIMELINE (PHYSICS ONLY)
+    Objective: Track the object (Ball) and its holder. specificy timestamps.
+    Constraint: Do NOT use words like "Pass", "Shot", "Feint", or "Assist".
+    Constraint: Report ONLY physical states. Use strictly "z" prefixed zones (e.g. z10).
+    Constraint: Do NOT infer a pass if the ball is bounced/dribbled. A bounce returns possession to the SAME player.
+    Constraint: Only log a new 'Ball Holder' if you see the ball physically secured by a *different* player.
+    
+    Format per timestamp (every ~0.5s or change of state):
+    - [Time] Ball Holder: [Role/Jersey] | Zone: [z0-z13] | Status: [Holding/Dribbling/In-Air (Pass)/In-Air (Bounce)/Loose]
+    
+    Example:
+    - [0.0s] Ball Holder: RB (#25) | Zone: z10 | Status: Holding
+    - [0.5s] Ball Holder: RB (#25) | Zone: z9 | Status: Dribbling (In-Air Bounce)
+    - [1.2s] Ball Holder: None (In-Air) | Zone: z8 | Status: In-Air (Pass to CB)
+    - [1.3s] Ball Holder: CB (#5) | Zone: z8 | Status: Holding
     """,
 
-    # Step 4: Synthesis
-    "4_json": """
+    # Layer 3: Defensive Grid (Independent)
+    "3_defense_grid": """
+    TASK: DEFENSIVE GRID ANALYSIS
+    Objective: Analyze the defense INDEPENDENTLY of the ball.
+    1. **Depth Check**: For DL3 and DR3, track their depth from the goal line (6m, 7m, 8m, 9m) at key timestamps.
+    2. **Formation**: Identify if it is a flat 6-0 or if any defender steps out (5-1, usually ADV).
+    """,
+
+    # Layer 4: Tactical Synthesis (The "Why")
+    "4_tactical_synthesis": """
+    TASK: TACTICAL SYNTHESIS
+    Objective: Combine Layer 1 (Roster) and Layer 2 (Ball State) to infer distinct Events.
+    
+    Instructions:
+    - Look at Layer 2. If 'Ball Holder' changed from RB to CB, and 'Status' went 'In-Air', classify this as a PASS.
+    - If 'Ball Holder' led to 'Goal', classify as SHOT.
+    
+    Output a Narrative Timeline:
+    - [Time] [Event Type] [Description]
+    - Explicitly confirm: "Visual evidence supports this is a PASS, not a fake."
+    """,
+
+    # Layer 5: Sanity Check (Reflection)
+    "5_sanity_check": """
+    TASK: LOGIC & PHYSICS SANITY CHECK
+    Objective: Review your own analysis for hallucinations.
+    
+    Check 1: Teleportation. Did any player move > 3 zones in < 0.5 seconds? If yes, correct the zone.
+    Check 2: Role Consistency. Did "RB" suddenly become "CB"? Enforce Layer 1 Roster.
+    Check 3: Ghost Events/Dribble Check. Review the Ball State timeline. If Player A 'passes' to Player B, but Player B is just Player A after a cut/dribble (or if the 'pass' was actually a bounce), MERGE these into a single possession.
+    Check 4: Velocity Check. Does a 0.5s exchange between LB and CB make physics sense? If not, it's likely a single player moving.
+    
+    Output: "Corrections made: [List corrections or 'None']"
+    """,
+
+    # Layer 6: Final JSON
+    "6_json": """
     TASK: JSON GENERATION
-    Based on the Context, Defense, and Timeline you just established, generate the FINAL JSON output.
+    Objective: Generate the FINAL JSON based on the Corrected Synthesis.
     
     Use this Schema:
     [
@@ -62,33 +106,33 @@ ANALYSIS_TASKS = {
         "frame": {
           "time": "1.50 seconds",
           "visual_evidence": "...",
-          "possession": { "team": "...", "player_role": "...", "zone": 8, "action": "..." },
-          "event": { "type": "PASS", "from_role": "...", "to_role": "...", ... },
-          "attackers": { "LW": 1, "LB": 6, "CB": 8, ... },
+          "possession": { "team": "...", "player_role": "...", "zone": "z8", "action": "..." },
+          "event": { "type": "PASS", "from_role": "...", "to_role": "...", "outcome": "..." },
+          "attackers": { "LW": "z1", "LB": "z6", ... },
           "defensive_formation": {
-            "formation_type": "6-0",
-            "defenders": { "D1": 1, "D2": 2, ... }
+             "formation_type": "...",
+             "defenders": { "DL1": "z1", "DL2": "z2", ... } 
           },
           "game_state": "Attacking"
         }
       }
     ]
     
-    requirements:
-    - DEFENSE: Populate 'defensive_formation' accurately based on the defense step.
-    - ATTACKERS: Include 'PV2'.
-    - Output ONLY the JSON block.
+    Requirements:
+    - Output ONLY valid JSON.
+    - Ensure logical continuity (from_zone of Event N+1 usually matches to_zone of Event N).
+    - ALL ZONES MUST BE STRINGS STARTING WITH "z" (e.g., "z5", "z10").
     """
 }
 
 class GeminiCacheAnalyzer:
-    def __init__(self, api_key, model="gemini-1.5-pro-002", verbose=False):
+    def __init__(self, api_key, model="gemini-3-pro", verbose=False):
         self.api_key = api_key
         self.model_name = model
         self.verbose = verbose
         # Client for standard ops
         self.client = genai.Client(api_key=api_key)
-        
+
     def upload_video(self, video_path: Path):
         """Upload to Gemini File API."""
         if self.verbose:
@@ -125,24 +169,34 @@ class GeminiCacheAnalyzer:
 
         # 2. Create High-Density Cache
         cache_name = f"handball_cache_{int(time.time())}"
-        if self.verbose:
-            print(f"  Creating High-Density Context Cache ({self.model_name})...")
-            
         try:
             # Load the detailed Zone Definitions to bake into the cache system instruction
             # This makes the model "know" handball physics natively for this session
             zones_def_path = Path("gemini_context_zones.md")
             system_instruction = "You are a World-Class Handball Analyst."
+            if self.verbose:
+                 print(f"  Creating Ultra-Density Cache (FPS=10, Resolution=HIGH, Model={self.model_name})...")
             if zones_def_path.exists():
                 with open(zones_def_path, 'r') as f:
                     system_instruction += "\n\n" + f.read()
+            # Construct Content with Part.from_uri as requested
+            part = types.Part.from_uri(
+                file_uri=video_file.uri,
+                mime_type=video_file.mime_type
+            )
+            part.video_metadata = types.VideoMetadata(fps=10.0) 
+
+            content = types.Content(
+                role="user",
+                parts=[part]
+            )
 
             handball_cache = self.client.caches.create(
                 model=self.model_name,
                 config=types.CreateCachedContentConfig(
                     display_name=cache_name,
                     system_instruction=system_instruction,
-                    contents=[video_file],
+                    contents=[content],
                     ttl=f"{CACHE_TTL_SECONDS}s"
                 )
             )
@@ -151,24 +205,32 @@ class GeminiCacheAnalyzer:
             return
 
         # 3. Run Modular Steps
-        full_report_text = f"# Analysis Report: {video_path.name}\nDate: {datetime.now().isoformat()}\n\n"
+        config_verification = f"**Configuration Verification:**\n"
+        config_verification += f"- **Target FPS:** 10.0\n"
+        config_verification += f"- **Spatial Resolution:** HIGH (1120 tokens/frame)\n"
+        config_verification += f"- **Cache Name:** {handball_cache.name}\n"
+        
+        # Try to extract usage metadata
+        if hasattr(handball_cache, 'usage_metadata'):
+            usage = handball_cache.usage_metadata
+            config_verification += f"- **Total Tokens:** {usage.total_token_count}\n"
+            
+        if self.verbose:
+            print(f"  Config Verified: 10 FPS, HIGH Resolution")
+
+        full_report_text = f"# Analysis Report: {video_path.name}\n"
+        full_report_text += f"Date: {datetime.now().isoformat()}\n\n"
+        full_report_text += config_verification + "\n---\n\n"
+        
         final_json = None
         
-        chat_session = [] # Maintain history manually or via chat? 
-        # Caching naturally supports stateless calls if we pass cache=name. 
-        # But previous turns help next turns. 
-        # We can use a chat session *linked* to the cache? 
-        # Or just stateless calls where strict logical dependency isn't hard-coded in history.
-        # Actually, for "Step 3: JSON" to know "Step 2: Timeline", we MUST include Step 2 output in Step 3 input
-        # OR use a ChatSession bound to the cache. 
-        # The Python SDK `client.chats.create(model=..., config=...)` supports `cached_content`.
-        
-        # Using Chat Session for Continuity
+        # Using Chat Session for Continuity with High Resolution
         chat = self.client.chats.create(
             model=self.model_name,
             config=types.GenerateContentConfig(
                 cached_content=handball_cache.name,
-                temperature=0.7 # Low temp for precision
+                temperature=0.7, # Low temp for precision
+                media_resolution="MEDIA_RESOLUTION_HIGH" # High Spatial Density (280 tokens/frame)
             )
         )
 
@@ -224,13 +286,16 @@ class GeminiCacheAnalyzer:
 
         # Cleanup Cache (Optional, but polite)
         # client.caches.delete(name=handball_cache.name)
-        # We let it expire in 1h to allow inspection if needed
-        print(f"  🕒 Cache TTL: 1h ({handball_cache.name})")
+        # We let it expire in 1h to# --- Configuration ---
+CACHE_TTL_SECONDS = 3600 # 1 hour
+MODEL_NAME = "gemini-3-pro-preview" # Caching robust model.
+
+# ... (start of main)
 
 @click.command()
 @click.argument("input_path", type=click.Path(exists=True))
 @click.option("--output", "-o", default="results_cached", help="Output directory")
-@click.option("--model", "-m", default="gemini-1.5-pro-002", help="Model to use")
+@click.option("--model", "-m", default="gemini-3-pro-preview", help="Model to use")
 @click.option("--api-key", envvar="GEMINI_API_KEY")
 def main(input_path, output, model, api_key):
     if not api_key:

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLM-1 Verification App</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <h1>VLM-1 <span>Verification</span></h1>
+            <p>Inspect AI-inferred events in handball matches</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="controls card">
+            <div class="form-group">
+                <label for="videoPath">Video File Path</label>
+                <input type="text" id="videoPath" placeholder="e.g. GI17scenes-Scene-009.mp4"
+                    value="GI17scenes-Scene-009.mp4">
+            </div>
+            <div class="form-group">
+                <label for="contextPath">Context File Path (optional)</label>
+                <input type="text" id="contextPath" placeholder="e.g. GerIsl.json" value="GerIsl.json">
+            </div>
+            <div class="form-group" style="width: 120px;">
+                <label for="startOffset">Start Offset (s)</label>
+                <input type="number" id="startOffset" step="0.1" value="0.0">
+            </div>
+            <div class="form-group" style="width: 120px;">
+                <label for="maxFrames">Max Frames</label>
+                <input type="number" id="maxFrames" value="6">
+            </div>
+            <button id="startBtn" class="btn primary">Start Analysis</button>
+            <button id="exportBtn" class="btn secondary">Export Verifications</button>
+            <button id="resetBtn" class="btn secondary">Reset</button>
+        </section>
+
+        <section id="statusSection" class="status-section hidden">
+            <div class="card status-card">
+                <div class="status-header">
+                    <span id="jobStatus">Idle</span>
+                    <span id="jobId">Job ID: -</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="resultsSection" class="results-grid">
+            <!-- Frame cards will be injected here -->
+        </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

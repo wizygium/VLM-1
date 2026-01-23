@@ -19,3 +19,23 @@ build/
 .idea/
 .vscode/
 *.swp
+
+# System
+.DS_Store
+
+# Virtual Env
+.venv/
+venv/
+
+# Results and Cache
+results_*/
+test*/
+*.json
+!match_context.json
+!GerIsl.json
+!JapArg.json
+
+# Image/Video parts
+*.part
+*.png
+cookies.txt

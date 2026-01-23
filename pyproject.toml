@@ -8,10 +8,14 @@ version = "0.1.0"
 description = "Video processing using llama3.2-vision via Ollama"
 requires-python = ">=3.9"
 dependencies = [
+    "click>=8.1.0",
+    "google-generativeai>=0.8.0",
+    "jsonschema>=4.20.0",
+    "numpy>=1.24.0",
     "ollama>=0.4.0",
     "opencv-python>=4.9.0",
-    "click>=8.1.0",
     "psutil>=5.9.0",
+    "tqdm>=4.66.0",
 ]
 
 [project.optional-dependencies]

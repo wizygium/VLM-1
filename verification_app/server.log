@@ -1,0 +1,589 @@
+/Users/lukewildman/Projects/VLM-1/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+INFO:     Started server process [21246]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:61898 - "GET /data/job_1768650960/clip_2.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:61898 - "GET /data/job_1768650960/clip_1.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:61898 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "POST /analyze HTTP/1.1" 200 OK
+Starting job job_1768651497...
+Loading VLM model for the first time...
+Loading model from mlx-community/Qwen2.5-VL-7B-Instruct-4bit...
+Fetching 12 files:   0%|          | 0/12 [00:00<?, ?it/s]Fetching 12 files: 100%|██████████| 12/12 [00:00<00:00, 145888.83it/s]
+Model loaded successfully.
+DEBUG: Analyze batch called with 1 images.
+==========
+Files: [<PIL.JpegImagePlugin.JpegImageFile image mode=RGB size=1536x1152 at 0x179F70520>] 
+
+Prompt: <|im_start|>system
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+<|vision_start|><|image_pad|><|vision_end|>These 10 images form a chronological sequence covering 3.60 seconds.
+MATCH: Germany vs Island men
+Teams: BLACK jersey = Island, WHITE jersey = Germany
+
+### HANDBALL LOGIC & RULES (STRICT ENFORCEMENT):
+
+1. **PLAYER ROLES:** Identify players by their position on court:
+   - **GK (Goalkeeper):** In goal area.
+   - **LW/RW (Wingers):** Far left/right corners.
+   - **LB/RB (Backs):** 9m line left/right.
+   - **CB (Center Back):** Middle 9m.
+   - **PV (Pivot):** Inside 6m line among defenders.
+
+2. **PASSING LOGIC (CRITICAL):**
+   - Passes are almost ALWAYS between **TEAMMATES** (Same Jersey Color).
+   - Example: WHITE Player -> WHITE Player.
+   - INTERCEPTIONS (Opposite Team) are rare events. Only label if clearly visible.
+
+3. **POSSESSION STATE:**
+   - DRIBBLING: Only label if hand is pushing ball to floor.
+   - HOLDING: Player gripping ball.
+   - NO POSSESSION: Ball is in air (Pass/Shot).
+
+4. **SHOT OUTCOMES:**
+   - **GOAL:** Ball fully crosses line. net movement.
+   - **SAVE:** GK blocks ball.
+   - **MISS:** Ball goes wide/high.
+   - **POST/BAR:** Ball hits frame.
+
+
+Analyze the frames in this sequence:
+Return a JSON ARRAY with EXACTLY 10 objects, one per frame shown in the grid.
+Each object should have this EXACT structure (no other text):
+{
+  "frame": {
+    "time": "X.XX seconds",
+    "possession": {
+      "team": "WHITE/BLACK/NONE",
+      "player_role": "LB/RB/CB/PV/LW/RW/GK",
+      "action": "Dribble/Hold/Pass/Shot"
+    },
+    "event": {
+      "type": "PASS/SHOT/TURNOVER/NONE",
+      "from_role": "Role (e.g. RB)",
+      "to_role": "Role (e.g. PV) or GOAL/GK",
+      "description": "Brief explanation"
+    },
+    "game_state": "Attacking/Defending/Transition"
+  }
+}
+
+CRITICAL: Return a JSON array with 10 objects, analyzing each frame in the grid from left to right, top to bottom.
+<|im_end|>
+<|im_start|>assistant
+
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+mx.metal.get_peak_memory is deprecated and will be removed in a future version. Use mx.get_peak_memory instead.
+```json
+[
+  {
+    "frame": {
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+      "time": "0.00 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "LB",
+        "action": "Hold"
+      },
+     INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "event": {
+        "type": "PASS",
+        "from_role": "LB",
+        "to_role": "RB",
+        "description": "White player passes to a teammate"
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "0.80 seconds",
+      "possession": {
+        "team": "WHITE",
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+        "player_role": "RB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "RB",
+        "to_role": "CB",
+INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "1.20 seconds",
+     INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "possession": {
+        "team": "WHITE",
+        "player_role": "CB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role":INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "CB",
+        "to_role": "LB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+     INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "time": "1.60 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "LB",
+        "action": "Hold"
+      },
+      "event":INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ {
+        "type": "PASS",
+        "from_role": "LB",
+        "to_role": "RB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state":INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "2.00 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "RB",
+       INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "RB",
+        "to_role": "CB",
+        "description": "White player passes to aINFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "2.40 seconds",
+      "possession": {
+        "team":INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "WHITE",
+        "player_role": "CB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "CB",
+        "to_role":INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "LB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "2.80INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "LB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+       INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "from_role": "LB",
+        "to_role": "RB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+   INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "frame": {
+      "time": "3.20 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "RB",
+        "action": "Hold"
+      },
+     INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "event": {
+        "type": "PASS",
+        "from_role": "RB",
+        "to_role": "CB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state":INFO:     127.0.0.1:61899 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+ "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "3.60 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "CB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "CB",
+        "to_role": "LB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  }
+]
+```
+==========
+Prompt: 2805 tokens, 116.581 tokens-per-sec
+Generation: 934 tokens, 22.480 tokens-per-sec
+Peak memory: 9.264 GB
+DEBUG: Response length: 3281 chars
+INFO:     127.0.0.1:61936 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61936 - "GET /data/job_1768651497/frame_0.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61937 - "GET /data/job_1768651497/frame_1.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61938 - "GET /data/job_1768651497/frame_2.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61939 - "GET /data/job_1768651497/clip_0.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61940 - "GET /data/job_1768651497/clip_1.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61941 - "GET /data/job_1768651497/clip_2.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61941 - "GET /data/job_1768651497/clip_4.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61936 - "GET /data/job_1768651497/clip_3.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61937 - "GET /data/job_1768651497/clip_6.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61939 - "GET /data/job_1768651497/clip_5.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61940 - "GET /data/job_1768651497/clip_7.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61938 - "GET /data/job_1768651497/clip_8.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61941 - "GET /data/job_1768651497/clip_9.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:61936 - "GET /data/job_1768651497/frame_3.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61937 - "GET /data/job_1768651497/frame_4.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61940 - "GET /data/job_1768651497/frame_5.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61936 - "GET /data/job_1768651497/frame_6.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61937 - "GET /data/job_1768651497/frame_8.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61940 - "GET /data/job_1768651497/frame_7.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61936 - "GET /data/job_1768651497/frame_9.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62129 - "GET /data/job_1768651497/clip_1.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62130 - "GET /data/job_1768651497/clip_0.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62131 - "GET /data/job_1768651497/clip_2.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62130 - "GET /data/job_1768651497/clip_4.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62129 - "GET /data/job_1768651497/clip_3.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62131 - "GET /data/job_1768651497/clip_5.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62131 - "GET /data/job_1768651497/clip_8.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62129 - "GET /data/job_1768651497/clip_7.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62130 - "GET /data/job_1768651497/clip_6.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62130 - "GET /data/job_1768651497/clip_9.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62165 - "GET /jobs/job_1768651497 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62187 - "GET /data/job_1768651497/clip_1.mp4 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62188 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62188 - "GET /static/app.js HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62189 - "POST /analyze HTTP/1.1" 200 OK
+Starting job job_1768652508...
+DEBUG: Analyze batch called with 1 images.
+==========
+Files: [<PIL.JpegImagePlugin.JpegImageFile image mode=RGB size=1536x1152 at 0x469313B20>] 
+
+Prompt: <|im_start|>system
+You are a helpful assistant.<|im_end|>
+<|im_start|>user
+<|vision_start|><|image_pad|><|vision_end|>These 10 images form a chronological sequence covering 3.60 seconds.
+MATCH: Germany vs Island men
+Teams: BLACK jersey = Island, WHITE jersey = Germany
+
+### HANDBALL LOGIC & RULES (STRICT ENFORCEMENT):
+
+1. **PLAYER ROLES:** Identify players by their position on court:
+   - **GK (Goalkeeper):** In goal area.
+   - **LW/RW (Wingers):** Far left/right corners.
+   - **LB/RB (Backs):** 9m line left/right.
+   - **CB (Center Back):** Middle 9m.
+   - **PV (Pivot):** Inside 6m line among defenders.
+
+2. **PASSING LOGIC (CRITICAL):**
+   - Passes are almost ALWAYS between **TEAMMATES** (Same Jersey Color).
+   - Example: WHITE Player -> WHITE Player.
+   - INTERCEPTIONS (Opposite Team) are rare events. Only label if clearly visible.
+
+3. **POSSESSION STATE:**
+   - DRIBBLING: Only label if hand is pushing ball to floor.
+   - HOLDING: Player gripping ball.
+   - NO POSSESSION: Ball is in air (Pass/Shot).
+
+4. **SHOT OUTCOMES:**
+   - **GOAL:** Ball fully crosses line. net movement.
+   - **SAVE:** GK blocks ball.
+   - **MISS:** Ball goes wide/high.
+   - **POST/BAR:** Ball hits frame.
+
+
+Analyze the frames in this sequence:
+Return a JSON ARRAY with EXACTLY 10 objects, one per frame shown in the grid.
+Each object should have this EXACT structure (no other text):
+{
+  "frame": {
+    "time": "X.XX seconds",
+    "possession": {
+      "team": "WHITE/BLACK/NONE",
+      "player_role": "LB/RB/CB/PV/LW/RW/GK",
+      "action": "Dribble/Hold/Pass/Shot"
+    },
+    "event": {
+      "type": "PASS/SHOT/TURNOVER/NONE",
+      "from_role": "Role (e.g. RB)",
+      "to_role": "Role (e.g. PV) or GOAL/GK",
+      "description": "Brief explanation"
+    },
+    "game_state": "Attacking/Defending/Transition"
+  }
+}
+
+CRITICAL: Return a JSON array with 10 objects, analyzing each frame in the grid from left to right, top to bottom.
+<|im_end|>
+<|im_start|>assistant
+
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+```json
+[
+  {
+    "frame": {
+      "time":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "0.00 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "LB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+       INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "from_role": "LB",
+        "to_role": "RB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+   INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "frame": {
+      "time": "0.80 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "RB",
+        "action": "Hold"
+      },
+     INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "event": {
+        "type": "PASS",
+        "from_role": "RB",
+        "to_role": "CB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "1.20 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "CB",
+       INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "CB",
+        "to_role": "LB",
+        "description": "White player passes to a teammate"
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "1.60 seconds",
+      "possession": {
+        "team":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "WHITE",
+        "player_role": "LB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "LB",
+        "to_role": "RB",
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "2.00 seconds",
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+      "possession": {
+        "team": "WHITE",
+        "player_role": "RB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "RB",
+        "to_role": "CB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+      "time": "2.40 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "CB",
+        "action": "Hold"
+      },
+      "event": {
+       INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "type": "PASS",
+        "from_role": "CB",
+        "to_role": "LB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+   INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ }
+  },
+  {
+    "frame": {
+      "time": "2.80 seconds",
+      "possession": {
+        "team": "WHITE",
+        "player_role": "LB",
+        "action":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "LB",
+        "to_role": "RB",
+        "description": "White player passes to aINFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "3.20 seconds",
+      "possession": {
+        "team":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "WHITE",
+        "player_role": "RB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role": "RB",
+        "to_role": "CB",
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  },
+  {
+    "frame": {
+      "time": "3.60 seconds",
+     INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "possession": {
+        "team": "WHITE",
+        "player_role": "CB",
+        "action": "Hold"
+      },
+      "event": {
+        "type": "PASS",
+        "from_role":INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+ "CB",
+        "to_role": "LB",
+        "description": "White player passes to a teammate"
+      },
+      "game_state": "Attacking"
+    }
+  }
+]
+```
+==========
+Prompt: 2805 tokens, 122.627 tokens-per-sec
+Generation: 934 tokens, 23.016 tokens-per-sec
+Peak memory: 9.264 GB
+DEBUG: Response length: 3281 chars
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /jobs/job_1768652508 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /data/job_1768652508/frame_0.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62203 - "GET /data/job_1768652508/frame_1.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62205 - "GET /data/job_1768652508/frame_3.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62204 - "GET /data/job_1768652508/frame_2.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62206 - "GET /data/job_1768652508/frame_4.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62207 - "GET /data/job_1768652508/frame_5.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62189 - "GET /data/job_1768652508/frame_6.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62203 - "GET /data/job_1768652508/frame_8.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62204 - "GET /data/job_1768652508/frame_7.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62205 - "GET /data/job_1768652508/clip_0.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62207 - "GET /data/job_1768652508/clip_2.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62206 - "GET /data/job_1768652508/clip_1.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62189 - "GET /data/job_1768652508/clip_3.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62207 - "GET /data/job_1768652508/clip_4.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62206 - "GET /data/job_1768652508/clip_5.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62204 - "GET /data/job_1768652508/clip_7.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62205 - "GET /data/job_1768652508/clip_6.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62203 - "GET /data/job_1768652508/clip_8.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62189 - "GET /data/job_1768652508/clip_9.mp4 HTTP/1.1" 206 Partial Content
+INFO:     127.0.0.1:62650 - "GET /data/job_1768652508/clip_2.mp4 HTTP/1.1" 304 Not Modified
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [21246]

@@ -2,15 +2,33 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+from PIL import Image
+import io
+import json
+import re
 
 import cv2
-import ollama
+import mlx_vlm
+from mlx_vlm.utils import load, generate
+
+# Monkeypatch Qwen2Tokenizer if needed for mlx_vlm slow tokenizer support
+try:
+    from transformers import Qwen2Tokenizer
+    if not hasattr(Qwen2Tokenizer, "vocab"):
+        @property
+        def vocab(self):
+            return self.get_vocab()
+        Qwen2Tokenizer.vocab = vocab
+except ImportError:
+    pass
 
 
 class VideoProcessor:
-    def __init__(self, model: str = "llama3.2-vision"):
-        self.model = model
-        self.client = ollama.Client()
+    def __init__(self, model_path: str = "mlx-community/Qwen2.5-VL-7B-Instruct-4bit"):
+        self.model_path = model_path
+        print(f"Loading model from {model_path}...")
+        self.model, self.processor = load(model_path, use_fast=False)
+        print("Model loaded successfully.")
 
     def extract_frames(
         self, video_path: str | Path, interval_seconds: float = 1.0
@@ -49,19 +67,46 @@ class VideoProcessor:
 
     def analyze_frame(self, image_bytes: bytes, prompt: str) -> str:
         """Analyze a single frame using the VLM."""
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        return self.analyze_batch([image_bytes], prompt)
 
-        response = self.client.chat(
-            model=self.model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt,
-                    "images": [image_b64],
-                }
-            ],
+    def analyze_batch(self, images_bytes: list[bytes], prompt: str) -> str:
+        """Analyze a sequence of frames.
+        
+        Note: This function now expects a SINGLE grid image containing all frames,
+        not multiple individual frames. The cumulative history approach caused
+        Metal buffer crashes and index errors with MLX.
+        """
+        print(f"DEBUG: Analyze batch called with {len(images_bytes)} images.")
+        
+        # Convert to PIL image(s)
+        images = [Image.open(io.BytesIO(b)) for b in images_bytes]
+        
+        # Create a simple user message with the image(s) and prompt
+        messages = [{
+            "role": "user",
+            "content": [
+                *[{"type": "image"} for _ in images],
+                {"type": "text", "text": prompt}
+            ]
+        }]
+        
+        # Apply chat template
+        formatted_prompt = self.processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
         )
-        return response["message"]["content"]
+        
+        # Generate response
+        response = generate(
+            self.model,
+            self.processor,
+            prompt=formatted_prompt,
+            image=images,
+            max_tokens=3000,
+            verbose=True
+        )
+        
+        print(f"DEBUG: Response length: {len(response)} chars")
+        return response
 
     def process_video(
         self,
@@ -88,6 +133,7 @@ class VideoProcessor:
             results.append({
                 "timestamp": timestamp,
                 "analysis": analysis,
+                "id": i
             })
 
         return results

@@ -1,0 +1,13 @@
+{
+  "match": "Germany vs Island men",
+  "teams": [
+    {
+      "name": "Island",
+      "color": "BLACK"
+    },
+    {
+      "name": "Germany",
+      "color": "WHITE"
+    }
+  ]
+}

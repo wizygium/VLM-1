@@ -1,0 +1,13 @@
+{
+  "match": "Japan vs Argentina Women",
+  "teams": [
+    {
+      "name": "Japan",
+      "color": "BLACK"
+    },
+    {
+      "name": "Argentina",
+      "color": "WHITE"
+    }
+  ]
+}
