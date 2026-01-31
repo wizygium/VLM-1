@@ -67,14 +67,22 @@ def read_root():
 @app.get("/api/analyses")
 def list_analyses():
     """List all available physics analyses"""
+    print(f"DEBUG: Looking for analyses in {RESULTS_DIR}")
+    print(f"DEBUG: RESULTS_DIR exists: {RESULTS_DIR.exists()}")
+    
     if not RESULTS_DIR.exists():
+        print("DEBUG: RESULTS_DIR does not exist!")
         return {"analyses": []}
 
     analyses = []
 
     # Find all physics JSON files
-    for physics_file in RESULTS_DIR.glob("*_physics.json"):
+    physics_files = list(RESULTS_DIR.glob("*_physics.json"))
+    print(f"DEBUG: Found {len(physics_files)} physics files")
+    
+    for physics_file in physics_files:
         try:
+            print(f"DEBUG: Loading {physics_file.name}")
             with open(physics_file) as f:
                 data = json.load(f)
 
@@ -94,22 +102,25 @@ def list_analyses():
                     if player.get("track_id"):
                         unique_players.add(player["track_id"])
 
-            analyses.append(
-                AnalysisInfo(
-                    name=physics_file.stem.replace("_physics", ""),
-                    physics_file=str(physics_file),
-                    events_file=str(events_file) if events_file.exists() else None,
-                    s3_uri=data.get("video", ""),
-                    total_frames=metadata.get("total_frames", len(frames)),
-                    duration=metadata.get("duration_seconds", len(frames) * 0.0625),
-                    unique_players=len(unique_players),
-                ).dict()
-            )
+            analysis_dict = {
+                "name": physics_file.stem.replace("_physics", ""),
+                "physics_file": str(physics_file),
+                "events_file": str(events_file) if events_file.exists() else None,
+                "s3_uri": data.get("video", ""),
+                "total_frames": metadata.get("total_frames", len(frames)),
+                "duration": metadata.get("duration_seconds", len(frames) * 0.0625),
+                "unique_players": len(unique_players),
+            }
+            analyses.append(analysis_dict)
+            print(f"DEBUG: Added {analysis_dict['name']}")
 
         except Exception as e:
             print(f"Error loading {physics_file}: {e}")
+            import traceback
+            traceback.print_exc()
             continue
 
+    print(f"DEBUG: Returning {len(analyses)} analyses")
     return {"analyses": sorted(analyses, key=lambda x: x["name"])}
 
 

@@ -1,7 +1,13 @@
 /**
  * Handball Court Renderer
  *
- * Renders a handball court with 14-zone system and player positions
+ * Renders a handball court with 10-zone system (z0-z9) and player positions
+ * 
+ * Zone System:
+ * z0: Goal Area (inside 6m arc)
+ * z1-z3: Band 1 (6m-9m) - Left/Center/Right
+ * z4-z6: Band 2 (9m-12m) - Left/Center/Right
+ * z7-z9: Band 3 (12m-20m) - Left/Center/Right
  */
 
 class HandballCourtRenderer {
@@ -23,8 +29,8 @@ class HandballCourtRenderer {
         this.courtWidth = this.width - (this.courtMargin * 2);
         this.courtHeight = this.height - (this.courtMargin * 2);
 
-        // 14-zone system
-        this.zoneCount = 14;
+        // 10-zone system (z0-z9)
+        this.zoneCount = 10;
 
         // Colors
         this.colors = {
@@ -91,17 +97,13 @@ class HandballCourtRenderer {
     /**
      * Draw faint chessboard coloring for zone regions
      * 
-     * 6m zones (z1-z5): 5 evenly spaced around 6m D-line
-     *   - z1, z5 (wings): extend from goal line to 8m, covering the wing corners
-     *   - z2, z4: 45° arc sections from 6m to 8m
-     *   - z3 (pivot): 3m wide center section (matches goal width)
+     * 10-Zone System:
+     * z0: Goal area (inside 6m arc)
+     * z1-z3: Band 1 (6m-9m) - Left/Center/Right
+     * z4-z6: Band 2 (9m-12m) - Left/Center/Right  
+     * z7-z9: Band 3 (12m-20m) - Left/Center/Right
      * 
-     * 9m zones (z6-z10): 5 evenly spaced around 9m D-line, from 8m to 10m radius
-     *   - z6, z10: extend from 8m to sideline (trimmed at court edge)
-     *   - z8: 3m wide center section
-     * 
-     * Deep zones (z11-z13): Beyond 10m to court edge
-     *   - z12: 3m wide center section
+     * Lateral divisions: Left (x<7.5), Center (7.5≤x≤12.5), Right (x>12.5)
      */
     drawZoneRegions() {
         const centerX = this.courtMargin + this.courtWidth / 2;
@@ -116,159 +118,80 @@ class HandballCourtRenderer {
         const leftPostX = centerX - goalHalfWidth;
         const rightPostX = centerX + goalHalfWidth;
         
-        // Radii for zone boundaries
-        const radius6m = 6 * metersToPixels;   // 6m D-line
-        const radius8m = 8 * metersToPixels;   // Outer edge of 6m zones / Inner edge of 9m zones
-        const radius10m = 10 * metersToPixels; // Outer edge of 9m zones
+        // Lateral boundaries (7.5m and 12.5m from left)
+        const leftBoundary = courtLeft + 7.5 * metersToPixels;
+        const rightBoundary = courtLeft + 12.5 * metersToPixels;
+        
+        // Depth boundaries
+        const radius6m = 6 * metersToPixels;
+        const radius9m = 9 * metersToPixels;
+        const depth12m = goalY - 12 * metersToPixels;
         
         // Two alternating faint colors
         const colorA = 'rgba(200, 220, 240, 0.3)'; // Faint blue
         const colorB = 'rgba(240, 220, 200, 0.3)'; // Faint orange
         
-        // Angles for dividing arcs into 2 zones each (45 degrees per zone)
-        const angle45 = Math.PI / 4; // 45 degrees
-        
         this.ctx.save();
         
-        // === DEEP ZONES (z11, z12, z13) - beyond 10m radius ===
+        // === BAND 3 (z7, z8, z9) - 12m to 20m ===
         
-        // z11 - Deep left (from sideline to left edge of z12)
+        // z7 - Band 3 Left
         this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        this.ctx.moveTo(courtLeft, courtTop);
-        this.ctx.lineTo(courtLeft, goalY);
-        // Follow 10m arc (clipped at sideline)
-        const leftArcStartAngle10m = Math.PI + Math.acos(Math.min(1, (leftPostX - courtLeft) / radius10m));
-        this.ctx.arc(leftPostX, goalY, radius10m, Math.PI, Math.min(leftArcStartAngle10m, Math.PI * 1.5), false);
-        this.ctx.lineTo(leftPostX, courtTop);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(courtLeft, courtTop, leftBoundary - courtLeft, depth12m - courtTop);
         
-        // z12 - Deep center (3m wide, aligned with goal)
+        // z8 - Band 3 Center
         this.ctx.fillStyle = colorB;
-        this.ctx.beginPath();
-        this.ctx.moveTo(leftPostX, courtTop);
-        this.ctx.lineTo(leftPostX, goalY - radius10m);
-        this.ctx.lineTo(rightPostX, goalY - radius10m);
-        this.ctx.lineTo(rightPostX, courtTop);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(leftBoundary, courtTop, rightBoundary - leftBoundary, depth12m - courtTop);
         
-        // z13 - Deep right (from right edge of z12 to sideline)
+        // z9 - Band 3 Right
         this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        this.ctx.moveTo(rightPostX, courtTop);
-        this.ctx.lineTo(rightPostX, goalY - radius10m);
-        this.ctx.arc(rightPostX, goalY, radius10m, Math.PI * 1.5, Math.PI * 2, false);
-        this.ctx.lineTo(courtRight, goalY);
-        this.ctx.lineTo(courtRight, courtTop);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(rightBoundary, courtTop, courtRight - rightBoundary, depth12m - courtTop);
         
-        // === 9m ZONES (z6-z10) - from 8m to 10m radius, clipped at sidelines ===
+        // === BAND 2 (z4, z5, z6) - 9m to 12m ===
         
-        // z6 - Far left back (from sideline, along left arc)
+        // z4 - Band 2 Left
         this.ctx.fillStyle = colorB;
-        this.ctx.beginPath();
-        // Start at sideline intersection with 10m arc (or court edge)
-        this.ctx.moveTo(courtLeft, goalY);
-        // Outer arc (10m) - only draw if it reaches sideline
-        if (leftPostX - courtLeft < radius10m) {
-            const startAngle10m = Math.PI + Math.acos((leftPostX - courtLeft) / radius10m);
-            this.ctx.arc(leftPostX, goalY, radius10m, Math.PI, Math.min(startAngle10m, Math.PI + angle45), false);
-        }
-        this.ctx.arc(leftPostX, goalY, radius10m, Math.PI, Math.PI + angle45, false);
-        // Inner arc (8m) back
-        this.ctx.arc(leftPostX, goalY, radius8m, Math.PI + angle45, Math.PI, true);
-        this.ctx.lineTo(courtLeft, goalY);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(courtLeft, depth12m, leftBoundary - courtLeft, goalY - radius9m - depth12m);
         
-        // z7 - Left-center back (45° to 90° on left arc)
+        // z5 - Band 2 Center
         this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        this.ctx.arc(leftPostX, goalY, radius10m, Math.PI + angle45, Math.PI * 1.5, false);
-        this.ctx.arc(leftPostX, goalY, radius8m, Math.PI * 1.5, Math.PI + angle45, true);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(leftBoundary, depth12m, rightBoundary - leftBoundary, goalY - radius9m - depth12m);
         
-        // z8 - Center back (3m wide, the flat section between arcs at top)
+        // z6 - Band 2 Right
         this.ctx.fillStyle = colorB;
-        this.ctx.beginPath();
-        this.ctx.moveTo(leftPostX, goalY - radius10m);
-        this.ctx.lineTo(rightPostX, goalY - radius10m);
-        this.ctx.lineTo(rightPostX, goalY - radius8m);
-        this.ctx.lineTo(leftPostX, goalY - radius8m);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(rightBoundary, depth12m, courtRight - rightBoundary, goalY - radius9m - depth12m);
         
-        // z9 - Right-center back (90° to 45° on right arc)
+        // === BAND 1 (z1, z2, z3) - 6m to 9m arc ===
+        // Simplified rectangular approximation for visualization
+        
+        // z1 - Band 1 Left
         this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        this.ctx.arc(rightPostX, goalY, radius10m, Math.PI * 1.5, Math.PI * 2 - angle45, false);
-        this.ctx.arc(rightPostX, goalY, radius8m, Math.PI * 2 - angle45, Math.PI * 1.5, true);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(courtLeft, goalY - radius9m, leftBoundary - courtLeft, radius9m - radius6m);
         
-        // z10 - Far right back (45° to sideline on right arc)
+        // z2 - Band 1 Center
         this.ctx.fillStyle = colorB;
-        this.ctx.beginPath();
-        this.ctx.arc(rightPostX, goalY, radius10m, Math.PI * 2 - angle45, Math.PI * 2, false);
-        this.ctx.lineTo(courtRight, goalY);
-        this.ctx.arc(rightPostX, goalY, radius8m, Math.PI * 2, Math.PI * 2 - angle45, true);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(leftBoundary, goalY - radius9m, rightBoundary - leftBoundary, radius9m - radius6m);
         
-        // === 6m ZONES (z1-z5) - from goal line to 8m radius ===
-        
-        // z1 - Left wing (from goal line to 8m, covering wing corner area)
-        // This zone extends from the goal line up to 8m arc, and from sideline to 45° line
+        // z3 - Band 1 Right
         this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        this.ctx.moveTo(courtLeft, goalY);
-        this.ctx.arc(leftPostX, goalY, radius8m, Math.PI, Math.PI + angle45, false);
-        // Draw line down to 45° point on goal line
-        const x45at0 = leftPostX - radius8m * Math.cos(angle45);
-        this.ctx.lineTo(x45at0, goalY);
-        this.ctx.closePath();
-        this.ctx.fill();
+        this.ctx.fillRect(rightBoundary, goalY - radius9m, courtRight - rightBoundary, radius9m - radius6m);
         
-        // z2 - Left-center (45° to 90° on left arc, from 6m to 8m)
-        this.ctx.fillStyle = colorB;
+        // === z0 - Goal Area (inside 6m) ===
+        this.ctx.fillStyle = 'rgba(255, 235, 205, 0.5)';
         this.ctx.beginPath();
-        this.ctx.arc(leftPostX, goalY, radius8m, Math.PI + angle45, Math.PI * 1.5, false);
-        this.ctx.arc(leftPostX, goalY, radius6m, Math.PI * 1.5, Math.PI + angle45, true);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // z3 - Center pivot (3m wide, from 6m to 8m height)
-        this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        this.ctx.moveTo(leftPostX, goalY - radius8m);
-        this.ctx.lineTo(rightPostX, goalY - radius8m);
+        // Left arc
+        this.ctx.arc(leftPostX, goalY, radius6m, Math.PI, Math.PI * 1.5, false);
+        // Top straight line
         this.ctx.lineTo(rightPostX, goalY - radius6m);
-        this.ctx.lineTo(leftPostX, goalY - radius6m);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // z4 - Right-center (90° to 45° on right arc, from 6m to 8m)
-        this.ctx.fillStyle = colorB;
-        this.ctx.beginPath();
-        this.ctx.arc(rightPostX, goalY, radius8m, Math.PI * 1.5, Math.PI * 2 - angle45, false);
-        this.ctx.arc(rightPostX, goalY, radius6m, Math.PI * 2 - angle45, Math.PI * 1.5, true);
-        this.ctx.closePath();
-        this.ctx.fill();
-        
-        // z5 - Right wing (from goal line to 8m, covering wing corner area)
-        this.ctx.fillStyle = colorA;
-        this.ctx.beginPath();
-        const x45atRight = rightPostX + radius8m * Math.cos(angle45);
-        this.ctx.moveTo(x45atRight, goalY);
-        this.ctx.arc(rightPostX, goalY, radius8m, Math.PI * 2 - angle45, Math.PI * 2, false);
+        // Right arc
+        this.ctx.arc(rightPostX, goalY, radius6m, Math.PI * 1.5, Math.PI * 2, false);
         this.ctx.lineTo(courtRight, goalY);
+        this.ctx.lineTo(courtLeft, goalY);
         this.ctx.closePath();
         this.ctx.fill();
         
+        this.ctx.restore();
+    }
         this.ctx.restore();
     }
 
@@ -404,7 +327,7 @@ class HandballCourtRenderer {
 
 
     /**
-     * Draw zone labels (sample zones)
+     * Draw zone labels (10-zone system)
      */
     drawZoneLabels() {
         this.ctx.fillStyle = this.colors.zoneLabel;
@@ -412,11 +335,10 @@ class HandballCourtRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
 
-        // Label all 14 zones
+        // Label all 10 zones (z0-z9)
         const zones = [
             'z0', 'z1', 'z2', 'z3', 'z4', 'z5',
-            'z6', 'z7', 'z8', 'z9', 'z10',
-            'z11', 'z12', 'z13'
+            'z6', 'z7', 'z8', 'z9'
         ];
 
         zones.forEach(zone => {
@@ -464,13 +386,15 @@ class HandballCourtRenderer {
 
     /**
      * Get zone coordinates for rendering
-     * Maps 14-zone system to handball court positions
+     * Maps 10-zone system to handball court positions
      * 
      * Court: 20m wide, 20m deep (attacking half shown)
-     * z0: Goal (goalkeeper)
-     * z1-z5: 6-8m (Wing & Close Attack)
-     * z6-z10: 9m line (Backcourt)
-     * z11-z13: Beyond 9m (Deep)
+     * z0: Goal Area (inside 6m arc)
+     * z1-z3: Band 1 (6m-9m) - Left/Center/Right
+     * z4-z6: Band 2 (9m-12m) - Left/Center/Right
+     * z7-z9: Band 3 (12m-20m) - Left/Center/Right
+     * 
+     * Lateral: Left (x<7.5), Center (7.5≤x≤12.5), Right (x>12.5)
      */
     getZoneCoordinates(zone) {
         const goalY = this.courtMargin + this.courtHeight; // Bottom (goal line)
@@ -478,78 +402,35 @@ class HandballCourtRenderer {
         const centerX = this.courtMargin + this.courtWidth / 2;
         const courtLeft = this.courtMargin;
         const courtRight = this.courtMargin + this.courtWidth;
-        const courtWidth = this.courtWidth;
 
-        // Goal posts are at ±1.5m from center
-        const goalHalfWidth = 1.5 * metersToPixels;
-        const leftPostX = centerX - goalHalfWidth;
-        const rightPostX = centerX + goalHalfWidth;
+        // Lateral column centers (in meters from left)
+        const leftColCenter = 3.75 * metersToPixels;   // Center of x<7.5
+        const centerColCenter = 10 * metersToPixels;   // Center of 7.5≤x≤12.5
+        const rightColCenter = 16.25 * metersToPixels; // Center of x>12.5
         
-        // Zone radii (center of each zone band)
-        const radius7m = 7 * metersToPixels;   // Center of 6m zones (6-8m)
-        const radius9m = 9 * metersToPixels;   // Center of 9m zones (8-10m)
-        const radius14m = 14 * metersToPixels; // Center of deep zones (10m+)
-        
-        // Angles for zone positions
-        // z1/z5/z6/z10: 22.5° (center of 0-45° wing sector)
-        // z2/z4/z7/z9: 67.5° (center of 45-90° sector)
-        // z3/z8/z12: center (between goal posts)
-        
-        const angle22 = 22.5 * Math.PI / 180;  // Wing zone center
-        const angle67 = 67.5 * Math.PI / 180;  // Center-adjacent zone center
+        // Depth band centers (in meters from goal)
+        const band1Center = 7.5 * metersToPixels;  // Center of 6m-9m
+        const band2Center = 10.5 * metersToPixels; // Center of 9m-12m
+        const band3Center = 16 * metersToPixels;   // Center of 12m-20m
         
         // Zone definitions - positioned at center of each zone region
         const zoneMap = {
-            'z0': { x: centerX, y: goalY - 10 }, // Goal
+            'z0': { x: centerX, y: goalY - 3 * metersToPixels }, // Goal Area center
             
-            // 6m zones (z1-z5) - wings extend to goal line, center at ~4m from goal
-            'z1': { 
-                x: leftPostX - radius7m * Math.cos(angle22) * 0.6, 
-                y: goalY - radius7m * Math.sin(angle22) * 0.6
-            },
-            'z2': { 
-                x: leftPostX - radius7m * Math.cos(angle67), 
-                y: goalY - radius7m * Math.sin(angle67) 
-            },
-            'z3': { 
-                x: centerX, 
-                y: goalY - radius7m 
-            },
-            'z4': { 
-                x: rightPostX + radius7m * Math.cos(angle67), 
-                y: goalY - radius7m * Math.sin(angle67) 
-            },
-            'z5': { 
-                x: rightPostX + radius7m * Math.cos(angle22) * 0.6, 
-                y: goalY - radius7m * Math.sin(angle22) * 0.6
-            },
+            // Band 1 (6m-9m): z1-z3
+            'z1': { x: courtLeft + leftColCenter, y: goalY - band1Center },
+            'z2': { x: centerX, y: goalY - band1Center },
+            'z3': { x: courtLeft + rightColCenter, y: goalY - band1Center },
             
-            // 9m zones (z6-z10) - radially placed at center of each zone
-            'z6': { 
-                x: leftPostX - radius9m * Math.cos(angle22), 
-                y: goalY - radius9m * Math.sin(angle22) 
-            },
-            'z7': { 
-                x: leftPostX - radius9m * Math.cos(angle67), 
-                y: goalY - radius9m * Math.sin(angle67) 
-            },
-            'z8': { 
-                x: centerX, 
-                y: goalY - radius9m 
-            },
-            'z9': { 
-                x: rightPostX + radius9m * Math.cos(angle67), 
-                y: goalY - radius9m * Math.sin(angle67) 
-            },
-            'z10': { 
-                x: rightPostX + radius9m * Math.cos(angle22), 
-                y: goalY - radius9m * Math.sin(angle22) 
-            },
+            // Band 2 (9m-12m): z4-z6
+            'z4': { x: courtLeft + leftColCenter, y: goalY - band2Center },
+            'z5': { x: centerX, y: goalY - band2Center },
+            'z6': { x: courtLeft + rightColCenter, y: goalY - band2Center },
             
-            // Deep zones (z11-z13) - beyond 10m
-            'z11': { x: courtLeft + courtWidth * 0.25, y: goalY - radius14m },
-            'z12': { x: centerX, y: goalY - radius14m },
-            'z13': { x: courtRight - courtWidth * 0.25, y: goalY - radius14m }
+            // Band 3 (12m-20m): z7-z9
+            'z7': { x: courtLeft + leftColCenter, y: goalY - band3Center },
+            'z8': { x: centerX, y: goalY - band3Center },
+            'z9': { x: courtLeft + rightColCenter, y: goalY - band3Center }
         };
 
         return zoneMap[zone] || null;

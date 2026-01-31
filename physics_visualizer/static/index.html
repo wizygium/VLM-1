@@ -60,9 +60,33 @@
 
             <!-- Court Visualization Panel -->
             <div class="court-panel">
-                <h2>Handball Court (49 Zones)</h2>
+                <h2>Handball Court (10 Zones)</h2>
+                <div class="court-controls">
+                    <button id="zone-test-btn" class="zone-test-btn">🔍 Test All Zones</button>
+                    <button id="clear-test-btn" class="zone-test-btn hidden">✖ Clear Test</button>
+                    <select id="test-select" class="test-select">
+                        <option value="">Load Test File...</option>
+                    </select>
+                </div>
                 <div class="court-container">
                     <canvas id="court-canvas" width="700" height="700"></canvas>
+                </div>
+
+                <!-- Zone Legend -->
+                <div id="zone-legend" class="zone-legend hidden">
+                    <h4>10-Zone System</h4>
+                    <div class="zone-grid">
+                        <div class="zone-item"><span class="zone-label">z0</span> Goal Area</div>
+                        <div class="zone-item"><span class="zone-label">z1</span> Band1 Left</div>
+                        <div class="zone-item"><span class="zone-label">z2</span> Band1 Center</div>
+                        <div class="zone-item"><span class="zone-label">z3</span> Band1 Right</div>
+                        <div class="zone-item"><span class="zone-label">z4</span> Band2 Left</div>
+                        <div class="zone-item"><span class="zone-label">z5</span> Band2 Center</div>
+                        <div class="zone-item"><span class="zone-label">z6</span> Band2 Right</div>
+                        <div class="zone-item"><span class="zone-label">z7</span> Band3 Left</div>
+                        <div class="zone-item"><span class="zone-label">z8</span> Band3 Center</div>
+                        <div class="zone-item"><span class="zone-label">z9</span> Band3 Right</div>
+                    </div>
                 </div>
 
                 <!-- Frame Info -->

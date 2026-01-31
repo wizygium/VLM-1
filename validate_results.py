@@ -8,27 +8,20 @@ from typing import List, Dict, Any
 MAX_SPEED_MPS = 12.0  # Meters per second (World Record Sprint is ~10-11 m/s, accounting for burst)
 MAX_PASS_SPEED_MPS = 25.0 # Ball speed can be higher
 
-# Approximation of Zone Centroids (Meters)
-# Origin (0,0) is bottom-left corner of the court half.
-# 6m line is at x=6. Goal is at x=0, y=10.
-# Approximation of Zone Centroids (Meters)
-# Origin (0,0) is bottom-left corner of the court half.
-# 6m line is at x=6. Goal is at x=0, y=10.
+# Zone Centroids (Meters) - 10-zone system (z0-z9)
+# Origin (0,0) is bottom-left corner. Goal is centered at x=10, y=0.
+# Court is 20m wide x 20m deep.
 ZONE_COORDS = {
-    "z0":  (0, 10),  # Goal
-    "z1":  (2, 18),  # Deep Left Wing
-    "z2":  (5, 16),  # Left Wing 6m
-    "z3":  (5, 10),  # Pivot Center 6m
-    "z4":  (5, 4),   # Right Pivot 6m
-    "z5":  (5, 2),   # Right Wing 6m
-    "z6":  (9, 16),  # Left Back 9m
-    "z7":  (8, 12),  # Left Center 9m
-    "z8":  (11, 10), # Center Back (Deep)
-    "z9":  (8, 8),   # Right Center 9m
-    "z10": (9, 4),   # Right Back 9m
-    "z11": (1, 10),  # Goalkeeper Area
-    "z12": (15, 10), # Transition
-    "z13": (3, 10)   # Penalty Mark
+    "z0":  (10, 3),   # Goal Area (inside 6m arc)
+    "z1":  (4, 7.5),  # Band 1, Left (6m-9m, x<7.5)
+    "z2":  (10, 7.5), # Band 1, Center (6m-9m, 7.5≤x≤12.5)
+    "z3":  (16, 7.5), # Band 1, Right (6m-9m, x>12.5)
+    "z4":  (4, 10.5), # Band 2, Left (9m-12m, x<7.5)
+    "z5":  (10, 10.5),# Band 2, Center (9m-12m, 7.5≤x≤12.5)
+    "z6":  (16, 10.5),# Band 2, Right (9m-12m, x>12.5)
+    "z7":  (4, 16),   # Band 3, Left (12m-20m, x<7.5)
+    "z8":  (10, 16),  # Band 3, Center (12m-20m, 7.5≤x≤12.5)
+    "z9":  (16, 16),  # Band 3, Right (12m-20m, x>12.5)
 }
 
 VALID_ROLES = {

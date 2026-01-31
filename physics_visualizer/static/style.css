@@ -106,6 +106,94 @@ header h1 {
     padding-bottom: 10px;
 }
 
+/* Court Controls */
+.court-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.zone-test-btn {
+    padding: 8px 16px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.3s, transform 0.1s;
+}
+
+.zone-test-btn:hover {
+    background: #218838;
+    transform: translateY(-1px);
+}
+
+.zone-test-btn.hidden {
+    display: none;
+}
+
+.test-select {
+    padding: 8px 12px;
+    border: 2px solid #28a745;
+    border-radius: 6px;
+    background: white;
+    color: #28a745;
+    font-size: 0.9em;
+    cursor: pointer;
+    min-width: 150px;
+}
+
+.test-select:hover {
+    background: #f8f9fa;
+}
+
+/* Zone Legend */
+.zone-legend {
+    margin-top: 15px;
+    padding: 15px;
+    background: #e7f3ff;
+    border-radius: 6px;
+    border: 1px solid #b8daff;
+}
+
+.zone-legend.hidden {
+    display: none;
+}
+
+.zone-legend h4 {
+    margin-bottom: 10px;
+    color: #004085;
+    font-size: 1em;
+}
+
+.zone-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.zone-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85em;
+    color: #495057;
+}
+
+.zone-label {
+    display: inline-block;
+    background: #667eea;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.85em;
+    min-width: 30px;
+    text-align: center;
+}
+
 /* Video Container */
 .video-container {
     position: relative;

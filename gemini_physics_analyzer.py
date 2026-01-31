@@ -26,7 +26,7 @@ FPS = 16.0
 TEMPERATURE = 0.2  # Very low for factual observation
 MEDIA_RESOLUTION = "MEDIA_RESOLUTION_HIGH"  # 280 tokens/frame
 
-# --- Analysis Task (Physics Only) ---
+# --- Analysis Task (10-Zone System: z0-z9) ---
 ANALYSIS_TASK = """
 TASK: PHYSICS OBSERVATION
 
@@ -34,20 +34,32 @@ For EVERY frame at 16fps (0.0625s intervals), output:
 
 1. **Ball State:**
    - holder_track_id: Track ID of player with ball (or null)
-   - zone: Ball position (z0 or z{depth}_{lateral})
+   - zone: Ball position (z0 to z9)
    - state: "Holding"|"Dribbling"|"In-Air"|"Loose"
 
 2. **All Visible Players:**
    - track_id: Persistent ID (t1, t2, t3...) - MUST be consistent across frames
-   - zone: Player position (z{depth}_{lateral})
+   - zone: Player position (z0 to z9)
    - jersey_number: Visible number or null
    - team: "white"|"blue"|"unknown" or null
+
+ZONE SYSTEM (10 zones):
+- z0: Goal Area (inside 6m arc)
+- z1: Band 1 Left (6m-9m, x<7.5m)
+- z2: Band 1 Center (6m-9m, 7.5≤x≤12.5m)
+- z3: Band 1 Right (6m-9m, x>12.5m)
+- z4: Band 2 Left (9m-12m, x<7.5m)
+- z5: Band 2 Center (9m-12m, 7.5≤x≤12.5m)
+- z6: Band 2 Right (9m-12m, x>12.5m)
+- z7: Band 3 Left (12m-20m, x<7.5m)
+- z8: Band 3 Center (12m-20m, 7.5≤x≤12.5m)
+- z9: Band 3 Right (12m-20m, x>12.5m)
 
 CRITICAL RULES:
 - Use SAME track_id for same player throughout video
 - NEVER use event words: "Pass", "Shot", "Fake", "Goal"
 - ONLY observable physics - no interpretation
-- Zone format: z{depth}_{lateral} (e.g., z3_4, NOT z34)
+- Zone format: z0, z1, z2... z9 (simple zone IDs)
 - Output ONLY valid JSON array of frame objects
 
 Return format:
@@ -57,24 +69,24 @@ Return format:
     "timestamp": "0.0000",
     "ball": {
       "holder_track_id": "t1",
-      "zone": "z3_4",
+      "zone": "z5",
       "state": "Holding"
     },
     "players": [
-      {"track_id": "t1", "zone": "z3_4", "jersey_number": "25", "team": "white"},
-      {"track_id": "t2", "zone": "z3_5", "jersey_number": null, "team": "white"}
+      {"track_id": "t1", "zone": "z5", "jersey_number": "25", "team": "white"},
+      {"track_id": "t2", "zone": "z6", "jersey_number": null, "team": "white"}
     ]
   },
   {
     "timestamp": "0.0625",
     "ball": {
       "holder_track_id": "t1",
-      "zone": "z3_4",
+      "zone": "z5",
       "state": "Holding"
     },
     "players": [
-      {"track_id": "t1", "zone": "z3_4", "jersey_number": "25", "team": "white"},
-      {"track_id": "t2", "zone": "z3_6", "jersey_number": "12", "team": "white"}
+      {"track_id": "t1", "zone": "z5", "jersey_number": "25", "team": "white"},
+      {"track_id": "t2", "zone": "z4", "jersey_number": "12", "team": "white"}
     ]
   }
 ]
