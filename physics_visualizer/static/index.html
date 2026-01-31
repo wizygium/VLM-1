@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handball Physics Visualizer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤾 Handball Physics Visualizer</h1>
+            <p class="subtitle">Real-time physics tracking visualization</p>
+        </header>
+
+        <!-- Analysis Selector -->
+        <div class="selector-panel">
+            <label for="analysis-select">Select Analysis:</label>
+            <select id="analysis-select">
+                <option value="">Loading...</option>
+            </select>
+            <div id="analysis-info" class="analysis-info hidden">
+                <span id="info-frames">0 frames</span> •
+                <span id="info-duration">0.0s</span> •
+                <span id="info-players">0 players</span>
+            </div>
+        </div>
+
+        <!-- Main Content: Video + Court Side-by-Side -->
+        <div class="main-content">
+            <!-- Video Panel -->
+            <div class="video-panel">
+                <h2>Video</h2>
+                <div class="video-container">
+                    <video id="video-player" controls></video>
+                    <div id="video-loading" class="loading-overlay">
+                        <div class="spinner"></div>
+                        <p>Loading video...</p>
+                    </div>
+                    <div id="video-error" class="error-overlay hidden">
+                        <p>⚠️ Failed to load video</p>
+                    </div>
+                </div>
+
+                <!-- Video Controls -->
+                <div class="controls">
+                    <button id="play-pause-btn" disabled>▶️ Play</button>
+                    <button id="prev-frame-btn" disabled>⏮ Prev Frame</button>
+                    <button id="next-frame-btn" disabled>⏭ Next Frame</button>
+                    <label>
+                        Speed: <select id="playback-speed">
+                            <option value="0.25">0.25x</option>
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="2">2x</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Court Visualization Panel -->
+            <div class="court-panel">
+                <h2>Handball Court (49 Zones)</h2>
+                <div class="court-container">
+                    <canvas id="court-canvas" width="700" height="700"></canvas>
+                </div>
+
+                <!-- Frame Info -->
+                <div id="frame-info" class="frame-info">
+                    <div class="info-row">
+                        <strong>Time:</strong> <span id="current-time">0.000s</span>
+                    </div>
+                    <div class="info-row">
+                        <strong>Frame:</strong> <span id="current-frame">0 / 0</span>
+                    </div>
+                    <div class="info-row">
+                        <strong>Ball:</strong> <span id="ball-info">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Scrubber -->
+        <div class="timeline-panel">
+            <h3>Timeline</h3>
+            <div class="timeline-controls">
+                <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="0.1" disabled>
+                <div class="timeline-markers" id="timeline-markers"></div>
+            </div>
+            <div class="timeline-info">
+                <span id="timeline-start">0.00s</span>
+                <span id="timeline-current">0.00s</span>
+                <span id="timeline-end">0.00s</span>
+            </div>
+        </div>
+
+        <!-- Events Panel -->
+        <div class="events-panel">
+            <h3>Detected Events</h3>
+            <div id="events-list" class="events-list">
+                <p class="placeholder">No events detected</p>
+            </div>
+        </div>
+
+        <!-- Player List -->
+        <div class="players-panel">
+            <h3>Tracked Players</h3>
+            <div id="players-list" class="players-grid">
+                <p class="placeholder">No players tracked</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/court-renderer.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

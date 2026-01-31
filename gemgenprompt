@@ -1,0 +1,49 @@
+import numpy as np
+
+def get_handball_zone(x, y):
+    """
+    Returns the zone ID for a given (x, y) coordinate.
+    Origin (0,0) is bottom-left. Goal is centered at x=10.
+    """
+    # 1. Define Goal Area (z0) - 6m boundary
+    # Radius arcs from posts at (8.5, 0) and (11.5, 0)
+    dist_to_lp = np.sqrt((x - 8.5)**2 + y**2)
+    dist_to_rp = np.sqrt((x - 11.5)**2 + y**2)
+    
+    is_inside_6m = False
+    if y <= 6:
+        if 8.5 <= x <= 11.5: is_inside_6m = True # Straight section
+        elif x < 8.5 and dist_to_lp <= 6: is_inside_6m = True # Left arc
+        elif x > 11.5 and dist_to_rp <= 6: is_inside_6m = True # Right arc
+            
+    if is_inside_6m: return "z0: Goal Area"
+
+    # 2. Check if inside 9m line (Band 1 boundary)
+    is_inside_9m = False
+    if y <= 9:
+        if 8.5 <= x <= 11.5: is_inside_9m = True
+        elif x < 8.5 and np.sqrt((x - 8.5)**2 + y**2) <= 9: is_inside_9m = True
+        elif x > 11.5 and np.sqrt((x - 11.5)**2 + y**2) <= 9: is_inside_9m = True
+
+    # 3. Determine Band (Depth)
+    if is_inside_9m: band = 1
+    elif y <= 12:    band = 2
+    else:            band = 3
+
+    # 4. Determine Lateral Division (Width)
+    if x < 7.5:      lat = "Left"
+    elif x <= 12.5:  lat = "Center"
+    else:            lat = "Right"
+
+    # 5. Mapping to IDs
+    zone_lookup = {
+        (1, "Left"): "z1", (1, "Center"): "z2", (1, "Right"): "z3",
+        (2, "Left"): "z4", (2, "Center"): "z5", (2, "Right"): "z6",
+        (3, "Left"): "z7", (3, "Center"): "z8", (3, "Right"): "z9"
+    }
+    
+    return f"{zone_lookup[(band, lat)]}: Band {band}, {lat}"
+
+# --- Quick Test ---
+print(f"7m Mark (10, 7): {get_handball_zone(10, 7)}")
+print(f"Wing Position (2, 2): {get_handball_zone(2, 2)}")

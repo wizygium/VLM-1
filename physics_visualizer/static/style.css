@@ -1,0 +1,453 @@
+/* Handball Physics Visualizer Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #333;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+
+/* Header */
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+.subtitle {
+    font-size: 1.1em;
+    opacity: 0.9;
+}
+
+/* Selector Panel */
+.selector-panel {
+    padding: 20px 30px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.selector-panel label {
+    font-weight: 600;
+    color: #495057;
+}
+
+#analysis-select {
+    flex: 1;
+    max-width: 400px;
+    padding: 10px 15px;
+    border: 2px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+#analysis-select:hover {
+    border-color: #667eea;
+}
+
+.analysis-info {
+    font-size: 0.9em;
+    color: #6c757d;
+}
+
+.analysis-info.hidden {
+    display: none;
+}
+
+/* Main Content: Side by Side */
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 30px;
+    min-height: 600px;
+}
+
+/* Panels */
+.video-panel, .court-panel {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.video-panel h2, .court-panel h2 {
+    margin-bottom: 15px;
+    color: #495057;
+    font-size: 1.3em;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+/* Video Container */
+.video-container {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+}
+
+#video-player {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.loading-overlay, .error-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.error-overlay.hidden {
+    display: none;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Controls */
+.controls {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    padding: 10px 20px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.95em;
+    transition: background 0.3s, transform 0.1s;
+}
+
+button:hover:not(:disabled) {
+    background: #5568d3;
+    transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+button:disabled {
+    background: #ced4da;
+    cursor: not-allowed;
+}
+
+select {
+    padding: 8px 12px;
+    border: 2px solid #ced4da;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Court Canvas */
+.court-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 400px;
+}
+
+#court-canvas {
+    border: 2px solid #dee2e6;
+    border-radius: 4px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Frame Info */
+.frame-info {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border-left: 4px solid #667eea;
+}
+
+.info-row {
+    margin-bottom: 8px;
+    font-size: 0.95em;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-row strong {
+    color: #495057;
+    display: inline-block;
+    width: 80px;
+}
+
+.info-row span {
+    color: #212529;
+    font-family: 'Monaco', 'Courier New', monospace;
+}
+
+/* Timeline Panel */
+.timeline-panel {
+    padding: 20px 30px;
+    background: #f8f9fa;
+    border-top: 2px solid #e9ecef;
+}
+
+.timeline-panel h3 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+.timeline-controls {
+    position: relative;
+    padding: 10px 0;
+}
+
+#timeline-scrubber {
+    width: 100%;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #dee2e6;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+}
+
+#timeline-scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #667eea;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#timeline-scrubber::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #667eea;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#timeline-scrubber:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.timeline-markers {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.timeline-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+    font-size: 0.9em;
+    color: #6c757d;
+    font-family: 'Monaco', 'Courier New', monospace;
+}
+
+/* Events Panel */
+.events-panel {
+    padding: 20px 30px;
+    background: white;
+}
+
+.events-panel h3 {
+    margin-bottom: 15px;
+    color: #495057;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 10px;
+}
+
+.events-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.event-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #28a745;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.event-card.shot {
+    border-left-color: #dc3545;
+}
+
+.event-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.event-type {
+    font-weight: bold;
+    color: #28a745;
+    margin-bottom: 5px;
+}
+
+.event-card.shot .event-type {
+    color: #dc3545;
+}
+
+.event-details {
+    font-size: 0.9em;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+/* Players Panel */
+.players-panel {
+    padding: 20px 30px;
+    background: #f8f9fa;
+    border-top: 2px solid #e9ecef;
+}
+
+.players-panel h3 {
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+.players-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.player-card {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 2px solid transparent;
+}
+
+.player-card.blue {
+    border-color: #007bff;
+}
+
+.player-card.white {
+    border-color: #6c757d;
+}
+
+.player-track-id {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #495057;
+}
+
+.player-jersey {
+    font-size: 1.3em;
+    color: #212529;
+    margin: 5px 0;
+}
+
+.player-team {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.placeholder {
+    text-align: center;
+    color: #adb5bd;
+    padding: 40px;
+    font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 1.8em;
+    }
+
+    .selector-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #analysis-select {
+        max-width: none;
+    }
+
+    .controls {
+        flex-direction: column;
+    }
+
+    button {
+        width: 100%;
+    }
+}
