@@ -1,0 +1,63 @@
+{
+    "metadata": {
+        "video": "DEFENDER-TEST",
+        "total_frames": 1,
+        "duration_seconds": 1.0,
+        "test_description": "Test Case: Verify Defender Visibility (Triangles/Dark Grey)"
+    },
+    "frames": [
+        {
+            "time": "0.00 seconds",
+            "timestamp": 0.0,
+            "ball": {
+                "holder_track_id": "t2",
+                "zone": "z2",
+                "state": "Holding"
+            },
+            "players": [
+                {
+                    "track_id": "t1",
+                    "zone": "z1",
+                    "jersey_number": "LW",
+                    "team": "blue",
+                    "role": "LW"
+                },
+                {
+                    "track_id": "t2",
+                    "zone": "z2",
+                    "jersey_number": "PV",
+                    "team": "blue",
+                    "role": "PV"
+                },
+                {
+                    "track_id": "t3",
+                    "zone": "z3",
+                    "jersey_number": "RW",
+                    "team": "blue",
+                    "role": "RW"
+                },
+                {
+                    "track_id": "d1",
+                    "zone": "z4",
+                    "jersey_number": "4",
+                    "team": "white",
+                    "role": "D"
+                },
+                {
+                    "track_id": "d2",
+                    "zone": "z5",
+                    "jersey_number": "5",
+                    "team": "white",
+                    "role": "D"
+                },
+                {
+                    "track_id": "d3",
+                    "zone": "z6",
+                    "jersey_number": "6",
+                    "team": "white",
+                    "role": "D"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,10 @@
+{
+  "source_video": "s3://sagemaker-us-east-1-086355358526/data/raw_scenes/ADF/ADF-Scene-011.mp4",
+  "source_physics": "ADF-11_physics.json",
+  "metadata": {
+    "video": "ADF-Scene-011.mp4",
+    "total_frames": 5,
+    "duration_seconds": 5.0
+  },
+  "events": []
+}

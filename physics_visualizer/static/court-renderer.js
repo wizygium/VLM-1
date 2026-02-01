@@ -14,12 +14,12 @@ class HandballCourtRenderer {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
-        
+
         // Make court square for 20x20m half court
         const size = Math.min(canvas.width, canvas.height);
         this.width = size;
         this.height = size;
-        
+
         // Update canvas size to be square
         canvas.width = size;
         canvas.height = size;
@@ -39,7 +39,7 @@ class HandballCourtRenderer {
             goalZone: '#ffebcd',
             gridLines: '#d4d4d4',
             blueTeam: '#4A90E2',
-            whiteTeam: '#E8E8E8',
+            whiteTeam: '#666666', // Fix 2: Dark Grey for better contrast vs courtBg
             unknownTeam: '#95a5a6',
             ball: '#FFD700',
             ballHolder: '#FF6B6B',
@@ -66,15 +66,8 @@ class HandballCourtRenderer {
         // Draw zone regions with faint chessboard coloring
         this.drawZoneRegions();
 
-        // Draw goal zone (z0) at bottom
-        const goalHeight = this.courtHeight * 0.05;
-        this.ctx.fillStyle = this.colors.goalZone;
-        this.ctx.fillRect(
-            this.courtMargin,
-            this.courtMargin + this.courtHeight - goalHeight,
-            this.courtWidth,
-            goalHeight
-        );
+        // Fix 3: Removed opaque "Goal Zone" rectangle that was hiding zone colors near the line
+        // The D-zone (z0) is drawn later in drawZoneRegions and is sufficient.
 
         // Draw handball court lines (6m D, 9m D, sidelines)
         this.drawHandballCourtLines();
@@ -96,14 +89,7 @@ class HandballCourtRenderer {
 
     /**
      * Draw faint chessboard coloring for zone regions
-     * 
-     * 10-Zone System:
-     * z0: Goal area (inside 6m arc)
-     * z1-z3: Band 1 (6m-9m) - Left/Center/Right
-     * z4-z6: Band 2 (9m-12m) - Left/Center/Right  
-     * z7-z9: Band 3 (12m-20m) - Left/Center/Right
-     * 
-     * Lateral divisions: Left (x<7.5), Center (7.5≤x≤12.5), Right (x>12.5)
+     * Extends to full width (corners) and depth (goal line)
      */
     drawZoneRegions() {
         const centerX = this.courtMargin + this.courtWidth / 2;
@@ -112,86 +98,79 @@ class HandballCourtRenderer {
         const courtLeft = this.courtMargin;
         const courtRight = this.courtMargin + this.courtWidth;
         const courtTop = this.courtMargin;
-        
-        // Goal post positions (1.5m from center each side = 3m goal)
-        const goalHalfWidth = 1.5 * metersToPixels;
-        const leftPostX = centerX - goalHalfWidth;
-        const rightPostX = centerX + goalHalfWidth;
-        
+
         // Lateral boundaries (7.5m and 12.5m from left)
         const leftBoundary = courtLeft + 7.5 * metersToPixels;
         const rightBoundary = courtLeft + 12.5 * metersToPixels;
-        
+
         // Depth boundaries
         const radius6m = 6 * metersToPixels;
         const radius9m = 9 * metersToPixels;
         const depth12m = goalY - 12 * metersToPixels;
-        
+
         // Two alternating faint colors
         const colorA = 'rgba(200, 220, 240, 0.3)'; // Faint blue
         const colorB = 'rgba(240, 220, 200, 0.3)'; // Faint orange
-        
+
         this.ctx.save();
-        
-        // === BAND 3 (z7, z8, z9) - 12m to 20m ===
-        
-        // z7 - Band 3 Left
+
+        // === BAND 3 (12m to 20m) ===
+        // Band 3 Left (x < 7.5) -> Attacker Right
         this.ctx.fillStyle = colorA;
         this.ctx.fillRect(courtLeft, courtTop, leftBoundary - courtLeft, depth12m - courtTop);
-        
-        // z8 - Band 3 Center
+
+        // Band 3 Center
         this.ctx.fillStyle = colorB;
         this.ctx.fillRect(leftBoundary, courtTop, rightBoundary - leftBoundary, depth12m - courtTop);
-        
-        // z9 - Band 3 Right
+
+        // Band 3 Right (x > 12.5) -> Attacker Left
         this.ctx.fillStyle = colorA;
         this.ctx.fillRect(rightBoundary, courtTop, courtRight - rightBoundary, depth12m - courtTop);
-        
-        // === BAND 2 (z4, z5, z6) - 9m to 12m ===
-        
-        // z4 - Band 2 Left
+
+        // === BAND 2 (9m to 12m) ===
+
+        // Band 2 Left
         this.ctx.fillStyle = colorB;
         this.ctx.fillRect(courtLeft, depth12m, leftBoundary - courtLeft, goalY - radius9m - depth12m);
-        
-        // z5 - Band 2 Center
+
+        // Band 2 Center
         this.ctx.fillStyle = colorA;
         this.ctx.fillRect(leftBoundary, depth12m, rightBoundary - leftBoundary, goalY - radius9m - depth12m);
-        
-        // z6 - Band 2 Right
+
+        // Band 2 Right
         this.ctx.fillStyle = colorB;
         this.ctx.fillRect(rightBoundary, depth12m, courtRight - rightBoundary, goalY - radius9m - depth12m);
-        
-        // === BAND 1 (z1, z2, z3) - 6m to 9m arc ===
-        // Simplified rectangular approximation for visualization
-        
-        // z1 - Band 1 Left
+
+        // === BAND 1 (6m to 9m) - EXTENDED TO CORNERS ===
+
+        // Band 1 Left (extended to goal line)
         this.ctx.fillStyle = colorA;
-        this.ctx.fillRect(courtLeft, goalY - radius9m, leftBoundary - courtLeft, radius9m - radius6m);
-        
-        // z2 - Band 1 Center
+        this.ctx.fillRect(courtLeft, goalY - radius9m, leftBoundary - courtLeft, radius9m);
+
+        // Band 1 Center (6m-9m)
         this.ctx.fillStyle = colorB;
         this.ctx.fillRect(leftBoundary, goalY - radius9m, rightBoundary - leftBoundary, radius9m - radius6m);
-        
-        // z3 - Band 1 Right
+
+        // Band 1 Right (extended to goal line)
         this.ctx.fillStyle = colorA;
-        this.ctx.fillRect(rightBoundary, goalY - radius9m, courtRight - rightBoundary, radius9m - radius6m);
-        
+        this.ctx.fillRect(rightBoundary, goalY - radius9m, courtRight - rightBoundary, radius9m);
+
         // === z0 - Goal Area (inside 6m) ===
-        this.ctx.fillStyle = 'rgba(255, 235, 205, 0.5)';
+        const goalHalfWidth = 1.5 * metersToPixels;
+        const leftPostX = centerX - goalHalfWidth;
+        const rightPostX = centerX + goalHalfWidth;
+
+        this.ctx.fillStyle = 'rgba(255, 235, 205, 0.6)';
         this.ctx.beginPath();
-        // Left arc
+        // Standard D-Zone
         this.ctx.arc(leftPostX, goalY, radius6m, Math.PI, Math.PI * 1.5, false);
-        // Top straight line
         this.ctx.lineTo(rightPostX, goalY - radius6m);
-        // Right arc
         this.ctx.arc(rightPostX, goalY, radius6m, Math.PI * 1.5, Math.PI * 2, false);
         this.ctx.lineTo(courtRight, goalY);
         this.ctx.lineTo(courtLeft, goalY);
         this.ctx.closePath();
         this.ctx.fill();
-        
-        this.ctx.restore();
-    }
+
         this.ctx.restore();
     }
 
@@ -203,10 +182,10 @@ class HandballCourtRenderer {
     drawHandballCourtLines() {
         const centerX = this.courtMargin + this.courtWidth / 2;
         const goalY = this.courtMargin + this.courtHeight; // Bottom of court (goal line)
-        
+
         // Court scale: 20m width and depth maps to canvas dimensions
         const metersToPixels = this.courtWidth / 20; // pixels per meter
-        
+
         // Goal dimensions (3m wide)
         const goalWidthMeters = 3;
         const goalHalfWidth = (goalWidthMeters / 2) * metersToPixels; // 1.5m in pixels
@@ -223,7 +202,7 @@ class HandballCourtRenderer {
         // === 6m D-line (solid) ===
         const radius6m = 6 * metersToPixels; // 6m radius in pixels
         const top6m = goalY - radius6m; // Where the straight line connects
-        
+
         this.ctx.strokeStyle = this.colors.courtLines;
         this.ctx.lineWidth = 2;
         this.ctx.setLineDash([]);
@@ -247,7 +226,7 @@ class HandballCourtRenderer {
         // === 9m D-line (dashed) - trimmed at sidelines ===
         const radius9m = 9 * metersToPixels; // 9m radius in pixels
         const top9m = goalY - radius9m; // Where the straight line connects
-        
+
         this.ctx.strokeStyle = this.colors.courtLines;
         this.ctx.lineWidth = 2;
         this.ctx.setLineDash([10, 10]);
@@ -255,11 +234,11 @@ class HandballCourtRenderer {
         // Calculate where 9m arc intersects sideline
         const leftSidelineX = this.courtMargin;
         const rightSidelineX = this.courtMargin + this.courtWidth;
-        
+
         // For left arc centered at leftPostX with radius9m
         // Distance from left post to left sideline (horizontal)
         const leftDx = leftPostX - leftSidelineX;
-        
+
         // Left arc: starts at sideline intersection, goes up to vertical (3π/2)
         // The arc is centered at (leftPostX, goalY)
         // At x = leftSidelineX: leftPostX - radius9m*cos(θ) = leftSidelineX
@@ -274,7 +253,7 @@ class HandballCourtRenderer {
         // For right arc centered at rightPostX with radius9m
         // Distance from right post to right sideline
         const rightDx = rightSidelineX - rightPostX;
-        
+
         // Right arc: starts at vertical (3π/2), goes to sideline intersection
         // At x = rightSidelineX: rightPostX + radius9m*cos(θ) = rightSidelineX
         // So cos(θ) = rightDx/radius9m, and angle θ = 2π - acos(rightDx/radius9m)
@@ -310,7 +289,7 @@ class HandballCourtRenderer {
         // === Sidelines ===
         this.ctx.strokeStyle = this.colors.courtLines;
         this.ctx.lineWidth = 2;
-        
+
         // Left sideline
         this.ctx.beginPath();
         this.ctx.moveTo(this.courtMargin, this.courtMargin);
@@ -324,29 +303,34 @@ class HandballCourtRenderer {
         this.ctx.stroke();
     }
 
-
-
     /**
-     * Draw zone labels (10-zone system)
+     * Draw zone labels with descriptive names (z1_lw, etc.)
      */
     drawZoneLabels() {
         this.ctx.fillStyle = this.colors.zoneLabel;
-        this.ctx.font = '10px monospace';
+        this.ctx.font = 'bold 11px monospace';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
 
-        // Label all 10 zones (z0-z9)
+        // Descriptive labels per user request
+        // Swapped Left/Right (Attacking perspective)
+        // Canvas Left (x<7.5) = Right Wing
+        // Canvas Right (x>12.5) = Left Wing
         const zones = [
-            'z0', 'z1', 'z2', 'z3', 'z4', 'z5',
-            'z6', 'z7', 'z8', 'z9'
+            'z0_ga',
+            'z1_rw', 'z2_lp', 'z3_lw', // Band 1
+            'z4_rb', 'z5_cb', 'z6_lb', // Band 2
+            'z7_rb', 'z8_cb', 'z9_lb'  // Band 3
         ];
 
         zones.forEach(zone => {
             const coords = this.getZoneCoordinates(zone);
             if (coords) {
-                // Draw small zone label
-                this.ctx.globalAlpha = 0.5;
-                this.ctx.fillText(zone, coords.x, coords.y);
+                this.ctx.globalAlpha = 0.7;
+                // Show shorthand e.g. "LW" or full "z3_lw" ? User asked for description.
+                // Let's show "z3_LW"
+                const label = zone.replace('z', 'z:').toUpperCase();
+                this.ctx.fillText(label, coords.x, coords.y);
                 this.ctx.globalAlpha = 1.0;
             }
         });
@@ -385,81 +369,114 @@ class HandballCourtRenderer {
     }
 
     /**
-     * Get zone coordinates for rendering
-     * Maps 10-zone system to handball court positions
-     * 
-     * Court: 20m wide, 20m deep (attacking half shown)
-     * z0: Goal Area (inside 6m arc)
-     * z1-z3: Band 1 (6m-9m) - Left/Center/Right
-     * z4-z6: Band 2 (9m-12m) - Left/Center/Right
-     * z7-z9: Band 3 (12m-20m) - Left/Center/Right
-     * 
-     * Lateral: Left (x<7.5), Center (7.5≤x≤12.5), Right (x>12.5)
+     * Get zone coordinates including sub-zones
+     * Handled SWAPPED orientation (Attacker Top-Down)
+     */
+    /**
+     * Get zone coordinates including sub-zones
+     * Standard Map Orientation: Canvas Left = Left Wing
      */
     getZoneCoordinates(zone) {
-        const goalY = this.courtMargin + this.courtHeight; // Bottom (goal line)
-        const metersToPixels = this.courtWidth / 20; // pixels per meter
+        if (!zone) return null;
+
+        // Strip suffix if present to handle raw 'z1' vs 'z1_lw'
+        const baseZone = zone.split('_')[0];
+
+        const goalY = this.courtMargin + this.courtHeight;
+        const metersToPixels = this.courtWidth / 20;
         const centerX = this.courtMargin + this.courtWidth / 2;
         const courtLeft = this.courtMargin;
         const courtRight = this.courtMargin + this.courtWidth;
 
-        // Lateral column centers (in meters from left)
-        const leftColCenter = 3.75 * metersToPixels;   // Center of x<7.5
-        const centerColCenter = 10 * metersToPixels;   // Center of 7.5≤x≤12.5
-        const rightColCenter = 16.25 * metersToPixels; // Center of x>12.5
-        
-        // Depth band centers (in meters from goal)
-        const band1Center = 7.5 * metersToPixels;  // Center of 6m-9m
-        const band2Center = 10.5 * metersToPixels; // Center of 9m-12m
-        const band3Center = 16 * metersToPixels;   // Center of 12m-20m
-        
-        // Zone definitions - positioned at center of each zone region
-        const zoneMap = {
-            'z0': { x: centerX, y: goalY - 3 * metersToPixels }, // Goal Area center
-            
-            // Band 1 (6m-9m): z1-z3
-            'z1': { x: courtLeft + leftColCenter, y: goalY - band1Center },
-            'z2': { x: centerX, y: goalY - band1Center },
-            'z3': { x: courtLeft + rightColCenter, y: goalY - band1Center },
-            
-            // Band 2 (9m-12m): z4-z6
-            'z4': { x: courtLeft + leftColCenter, y: goalY - band2Center },
-            'z5': { x: centerX, y: goalY - band2Center },
-            'z6': { x: courtLeft + rightColCenter, y: goalY - band2Center },
-            
-            // Band 3 (12m-20m): z7-z9
-            'z7': { x: courtLeft + leftColCenter, y: goalY - band3Center },
-            'z8': { x: centerX, y: goalY - band3Center },
-            'z9': { x: courtLeft + rightColCenter, y: goalY - band3Center }
+        // X Positions (Canvas coordinates)
+        const xLeft = courtLeft + 3.75 * metersToPixels;   // Canvas Left
+        const xCenter = centerX;
+        const xRight = courtLeft + 16.25 * metersToPixels; // Canvas Right
+
+        // Y Positions
+        const yBand1 = goalY - 4 * metersToPixels;  // Deep corner / Pivot
+        const yBand2 = goalY - 10.5 * metersToPixels;
+        const yBand3 = goalY - 16 * metersToPixels;
+        const yGoal = goalY - 3 * metersToPixels;
+
+        // Mapping: Standard Map View (Left is Left)
+
+        const map = {
+            'z0': { x: centerX, y: yGoal },
+            'z0_ga': { x: centerX, y: yGoal },
+
+            // Band 1 (6-9m)
+            'z1': { x: xLeft, y: yBand1 },  // Left Wing
+            'z1_lw': { x: xLeft, y: yBand1 },
+
+            'z2': { x: xCenter, y: goalY - 7.5 * metersToPixels },
+            'z2_lp': { x: xCenter, y: goalY - 7.5 * metersToPixels },
+
+            'z3': { x: xRight, y: yBand1 }, // Right Wing
+            'z3_rw': { x: xRight, y: yBand1 },
+
+            // Band 2 (9-12m)
+            'z4': { x: xLeft, y: yBand2 },  // Left Back
+            'z4_lb': { x: xLeft, y: yBand2 },
+
+            'z5': { x: xCenter, y: yBand2 },
+            'z5_cb': { x: xCenter, y: yBand2 },
+
+            'z6': { x: xRight, y: yBand2 }, // Right Back
+            'z6_rb': { x: xRight, y: yBand2 },
+
+            // Band 3 (12-20m)
+            'z7': { x: xLeft, y: yBand3 },
+            'z7_lb': { x: xLeft, y: yBand3 }, // Left Back Deep
+
+            'z8': { x: xCenter, y: yBand3 },
+            'z8_cb': { x: xCenter, y: yBand3 },
+
+            'z9': { x: xRight, y: yBand3 },
+            'z9_rb': { x: xRight, y: yBand3 } // Right Back Deep
         };
 
-        return zoneMap[zone] || null;
+        return map[zone] || map[baseZone] || null;
     }
 
     /**
      * Draw players on the court
+     * Attackers (Blue/White): Circle
+     * Defenders (White/Red?): Triangle
      */
     drawPlayers(players, ballHolderTrackId = null) {
         players.forEach(player => {
             const coords = this.getZoneCoordinates(player.zone);
             if (!coords) return;
 
-            // Determine color based on team
+            // Determine style based on team/role
+            // User request: Defenders = Triangle, Attackers = Circle
+            const isDefender = player.team === 'white' || (player.role && player.role.startsWith('D'));
+            const isAttacker = !isDefender;
+
             let fillColor = this.colors.unknownTeam;
-            if (player.team === 'blue') {
-                fillColor = this.colors.blueTeam;
-            } else if (player.team === 'white') {
-                fillColor = this.colors.whiteTeam;
-            }
+            if (player.team === 'blue') fillColor = this.colors.blueTeam;
+            if (player.team === 'white') fillColor = this.colors.whiteTeam;
 
             // Highlight ball holder
             const isBallHolder = player.track_id === ballHolderTrackId;
-            const radius = isBallHolder ? 20 : 15;
+            const size = isBallHolder ? 22 : 16;
 
-            // Draw player circle
             this.ctx.fillStyle = fillColor;
             this.ctx.beginPath();
-            this.ctx.arc(coords.x, coords.y, radius, 0, Math.PI * 2);
+
+            if (isDefender) {
+                // Draw Triangle
+                // Center matches circle center at (coords.x, coords.y)
+                // Point up
+                this.ctx.moveTo(coords.x, coords.y - size);
+                this.ctx.lineTo(coords.x + size, coords.y + size * 0.8);
+                this.ctx.lineTo(coords.x - size, coords.y + size * 0.8);
+                this.ctx.closePath();
+            } else {
+                // Draw Circle
+                this.ctx.arc(coords.x, coords.y, size, 0, Math.PI * 2);
+            }
             this.ctx.fill();
 
             // Border
@@ -467,18 +484,24 @@ class HandballCourtRenderer {
             this.ctx.lineWidth = isBallHolder ? 3 : 2;
             this.ctx.stroke();
 
-            // Jersey number
+            // Labels - Jersey Number
             this.ctx.fillStyle = player.team === 'white' ? '#333' : '#fff';
-            this.ctx.font = 'bold 12px sans-serif';
+            this.ctx.font = 'bold 11px sans-serif';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            const jersey = player.jersey_number || '?';
-            this.ctx.fillText(jersey, coords.x, coords.y);
+
+            let label = player.jersey_number || '?';
+
+            // Adjust label Y for triangle center of mass visual
+            const labelY = isDefender ? coords.y + 2 : coords.y;
+            this.ctx.fillText(label, coords.x, labelY);
 
             // Track ID below
             this.ctx.fillStyle = '#333';
             this.ctx.font = '10px monospace';
-            this.ctx.fillText(player.track_id, coords.x, coords.y + radius + 12);
+            // Adjust text position for triangle
+            const textY = isDefender ? coords.y + size + 16 : coords.y + size + 14;
+            this.ctx.fillText(player.track_id, coords.x, textY);
         });
     }
 

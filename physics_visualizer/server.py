@@ -54,7 +54,9 @@ class AnalysisInfo(BaseModel):
 # Initialize S3 client
 try:
     s3_client = boto3.client("s3")
-except Exception:
+    print("DEBUG: S3 client initialized successfully")
+except Exception as e:
+    print(f"ERROR: Failed to initialize S3 client: {e}")
     s3_client = None
 
 
@@ -179,29 +181,42 @@ def get_video_url(analysis_name: str, expires_in: int = 3600):
             data = json.load(f)
 
         s3_uri = data.get("video", "")
-
+        
+        # [FIX] Handle local/relative paths or non-S3 URIs
         if not s3_uri.startswith("s3://"):
-            raise HTTPException(status_code=400, detail="Invalid S3 URI")
+             # Fallback 1: Check environment variable S3_BUCKET
+             fallback_bucket = os.environ.get("S3_BUCKET")
+             if fallback_bucket:
+                 # Construct valid S3 URI: s3://{bucket}/{filename}
+                 # Assuming filename is the s3_uri value
+                 print(f"DEBUG: Using fallback bucket {fallback_bucket} for {s3_uri}")
+                 s3_uri = f"s3://{fallback_bucket}/{s3_uri}"
+             else:
+                 # Fallback 2: Serve local file (if exists/configured)
+                 return {"url": f"/static/videos/{s3_uri}", "expires_in": expires_in}
 
         # Parse S3 URI
-        parts = s3_uri[5:].split("/", 1)
-        bucket = parts[0]
-        key = parts[1] if len(parts) > 1 else ""
+        if s3_uri.startswith("s3://"):
+            parts = s3_uri[5:].split("/", 1)
+            bucket = parts[0]
+            key = parts[1] if len(parts) > 1 else ""
 
-        # Generate presigned URL
-        try:
-            presigned_url = s3_client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": bucket, "Key": key},
-                ExpiresIn=expires_in,
-            )
+            # Generate presigned URL
+            try:
+                presigned_url = s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={"Bucket": bucket, "Key": key},
+                    ExpiresIn=expires_in,
+                )
 
-            return {"url": presigned_url, "expires_in": expires_in}
+                return {"url": presigned_url, "expires_in": expires_in}
 
-        except ClientError as e:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to generate presigned URL: {e}"
-            )
+            except ClientError as e:
+                raise HTTPException(
+                    status_code=500, detail=f"Failed to generate presigned URL: {e}"
+                )
+        
+        return {"url": "", "error": "Could not determine video source"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -22,7 +22,6 @@ const playbackSpeed = document.getElementById('playback-speed');
 const timelineScrubber = document.getElementById('timeline-scrubber');
 const courtCanvas = document.getElementById('court-canvas');
 const zoneTestBtn = document.getElementById('zone-test-btn');
-const clearTestBtn = document.getElementById('clear-test-btn');
 const zoneLegend = document.getElementById('zone-legend');
 const testSelect = document.getElementById('test-select');
 
@@ -50,74 +49,92 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load available analyses
     await loadAnalyses();
-    
+
     // Load test files into test dropdown
     await loadTestFiles();
 
     // Set up event listeners
     setupEventListeners();
+
+    // Auto-select first analysis if available
+    if (analysisSelect.options.length > 1) {
+        analysisSelect.selectedIndex = 1;
+        analysisSelect.dispatchEvent(new Event('change'));
+    }
 });
+
+/**
+ * Log message to the scrolling buffer
+ * @param {string} msg - Message text
+ * @param {string} type - 'info', 'error', 'success', 'warn', 'system'
+ */
+function logSystemMessage(msg, type = 'info') {
+    const logBuffer = document.getElementById('message-log');
+    if (!logBuffer) {
+        console.log(`[${type.toUpperCase()}] ${msg}`);
+        return;
+    }
+
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type}`;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const ms = String(now.getMilliseconds()).padStart(3, '0');
+
+    entry.innerHTML = `<span class="log-timestamp">[${timeStr}.${ms}]</span>${msg}`;
+
+    logBuffer.appendChild(entry);
+    logBuffer.scrollTop = logBuffer.scrollHeight;
+
+    // Also log to console
+    if (type === 'error') console.error(msg);
+    else console.log(msg);
+}
 
 /**
  * Load list of available analyses
  */
 async function loadAnalyses() {
-    console.log('loadAnalyses: Starting...');
-    
-    // Add visual debug element 
-    const debugDiv = document.createElement('div');
-    debugDiv.id = 'debug-output';
-    debugDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:#333;color:#0f0;padding:10px;font-family:monospace;font-size:12px;max-width:400px;z-index:9999;';
-    document.body.appendChild(debugDiv);
-    
-    function debug(msg) {
-        console.log(msg);
-        debugDiv.innerHTML += msg + '<br>';
-    }
-    
+    logSystemMessage('Fetching available analyses...', 'system');
+
     if (!analysisSelect) {
-        debug('ERROR: analysisSelect is null!');
+        logSystemMessage('ERROR: analysisSelect element not found', 'error');
         return;
     }
-    debug('analysisSelect found: ' + analysisSelect.id);
-    
+
     try {
-        debug('Fetching /api/analyses...');
         const response = await fetch('/api/analyses');
-        debug('Response status: ' + response.status);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
         const data = await response.json();
-        debug('Data received: ' + JSON.stringify(data).substring(0, 200));
-        debug('Analyses count: ' + (data.analyses ? data.analyses.length : 0));
+        const count = data.analyses ? data.analyses.length : 0;
+        logSystemMessage(`Loaded ${count} analyses`, 'success');
 
         analysisSelect.innerHTML = '';
 
         if (!data.analyses || data.analyses.length === 0) {
             analysisSelect.innerHTML = '<option value="">No analyses available</option>';
-            debug('No analyses found');
             return;
         }
 
         analysisSelect.innerHTML = '<option value="">Select an analysis...</option>';
         let addedCount = 0;
         data.analyses.forEach(analysis => {
-            debug('Processing: ' + analysis.name);
             // Skip TEST files in main dropdown
             if (analysis.name.startsWith('TEST-')) {
-                debug('Skipping TEST file: ' + analysis.name);
                 return;
             }
-            
+
             const option = document.createElement('option');
             option.value = analysis.name;
             option.textContent = `${analysis.name} (${analysis.total_frames} frames, ${analysis.duration.toFixed(1)}s)`;
             analysisSelect.appendChild(option);
             addedCount++;
         });
-        debug('Added ' + addedCount + ' options to dropdown');
 
     } catch (error) {
-        debug('ERROR: ' + error.message);
-        console.error('loadAnalyses: Failed:', error);
+        logSystemMessage(`Failed to load analyses: ${error.message}`, 'error');
         analysisSelect.innerHTML = '<option value="">Error loading analyses</option>';
     }
 }
@@ -127,17 +144,17 @@ async function loadAnalyses() {
  */
 async function loadTestFiles() {
     if (!testSelect) return;
-    
+
     try {
         const response = await fetch('/api/analyses');
         const data = await response.json();
 
         testSelect.innerHTML = '<option value="">Load Test File...</option>';
-        
+
         data.analyses.forEach(analysis => {
             // Only include TEST files
             if (!analysis.name.startsWith('TEST-')) return;
-            
+
             const option = document.createElement('option');
             option.value = analysis.name;
             // Clean up the name for display
@@ -170,6 +187,23 @@ async function loadAnalysis(analysisName) {
         try {
             const eventsResponse = await fetch(`/api/events/${analysisName}`);
             eventsData = await eventsResponse.json();
+
+            // Fix 5: Fallback if events list is empty but physics has correct Frame Events
+            if (!eventsData.events || eventsData.events.length === 0) {
+                console.warn('Events file empty. Extracting events from physics frames...');
+                eventsData = eventsData || {};
+                eventsData.events = [];
+
+                (physicsData.frames || []).forEach(frame => {
+                    if (frame.original_event) {
+                        // Normalize event structure
+                        const evt = frame.original_event;
+                        evt.time = frame.timestamp || 0;
+                        eventsData.events.push(evt);
+                    }
+                });
+                logSystemMessage(`Extracted ${eventsData.events.length} events from frames`, 'system');
+            }
         } catch (e) {
             console.warn('No events data available');
             eventsData = null;
@@ -179,14 +213,44 @@ async function loadAnalysis(analysisName) {
         const videoUrlResponse = await fetch(`/api/video-url/${analysisName}`);
         const videoUrlData = await videoUrlResponse.json();
 
+        if (videoUrlData.error) {
+            throw new Error(videoUrlData.error);
+        }
+
+        if (!videoUrlData.url) {
+            console.warn('Received empty video URL');
+            logSystemMessage(`Warning: No video URL returned for '${analysisName}'`, 'warn');
+        } else {
+            logSystemMessage(`Loading video: ${videoUrlData.url.substring(0, 50)}...`, 'system');
+        }
+
         // Load video
+        console.log("Setting video src:", videoUrlData.url);
         videoPlayer.src = videoUrlData.url;
+
+        // Add detailed error logging
+        videoPlayer.onerror = (e) => {
+            const err = videoPlayer.error;
+            let msg = 'Unknown Media Error';
+            if (err) {
+                switch (err.code) {
+                    case 1: msg = 'MEDIA_ERR_ABORTED'; break;
+                    case 2: msg = 'MEDIA_ERR_NETWORK'; break;
+                    case 3: msg = 'MEDIA_ERR_DECODE'; break;
+                    case 4: msg = 'MEDIA_ERR_SRC_NOT_SUPPORTED'; break;
+                }
+                msg += ` (${err.message})`;
+            }
+            console.error('Video Error:', msg, e);
+            logSystemMessage(`Video Error: ${msg}`, 'error');
+        };
+
         videoPlayer.load();
 
         // Update UI
-        updateAnalysisInfo();
-        displayEvents();
-        displayPlayers();
+        if (typeof updateAnalysisInfo === 'function') updateAnalysisInfo();
+        if (typeof displayEvents === 'function') displayEvents();
+        if (typeof displayPlayers === 'function') displayPlayers();
 
         // Enable controls
         playPauseBtn.disabled = false;
@@ -207,9 +271,13 @@ async function loadAnalysis(analysisName) {
 
     } catch (error) {
         console.error('Failed to load analysis:', error);
-        videoLoading.style.display = 'none';
-        videoError.classList.remove('hidden');
-        videoError.querySelector('p').textContent = `⚠️ ${error.message}`;
+        if (videoLoading) videoLoading.style.display = 'none';
+        if (videoError) {
+            videoError.classList.remove('hidden');
+            const p = videoError.querySelector('p');
+            if (p) p.textContent = `⚠️ ${error.message}`;
+        }
+        logSystemMessage(`Failed to load analysis '${analysisName}': ${error.message}`, 'error');
     }
 }
 
@@ -232,15 +300,17 @@ function updateAnalysisInfo() {
         });
     });
 
-    infoFrames.textContent = `${frames.length} frames`;
-    infoDuration.textContent = `${(frames.length * 0.0625).toFixed(1)}s`;
-    infoPlayers.textContent = `${uniquePlayers.size} players`;
 
-    analysisInfo.classList.remove('hidden');
+
+    if (infoFrames) infoFrames.textContent = `${frames.length} frames`;
+    if (infoDuration) infoDuration.textContent = `${(frames.length * 0.0625).toFixed(1)}s`;
+    if (infoPlayers) infoPlayers.textContent = `${uniquePlayers.size} players`;
+
+    if (analysisInfo) analysisInfo.classList.remove('hidden');
 
     // Update timeline labels
-    timelineStart.textContent = '0.00s';
-    if (frames.length > 0) {
+    if (timelineStart) timelineStart.textContent = '0.00s';
+    if (frames.length > 0 && timelineEnd) {
         const lastFrame = frames[frames.length - 1];
         timelineEnd.textContent = `${parseFloat(lastFrame.timestamp || 0).toFixed(2)}s`;
     }
@@ -261,16 +331,16 @@ function renderCurrentFrame() {
     courtRenderer.renderFrame(frame);
 
     // Update info displays
-    currentTimeDisplay.textContent = `${parseFloat(frame.timestamp || 0).toFixed(3)}s`;
-    currentFrameDisplay.textContent = `${currentFrameIndex + 1} / ${frames.length}`;
+    if (currentTimeDisplay) currentTimeDisplay.textContent = `${parseFloat(frame.timestamp || 0).toFixed(3)}s`;
+    if (currentFrameDisplay) currentFrameDisplay.textContent = `${currentFrameIndex + 1} / ${frames.length}`;
 
     const ball = frame.ball || {};
     const holder = ball.holder_track_id ? `Held by ${ball.holder_track_id}` : 'Loose';
-    ballInfoDisplay.textContent = `${ball.state || 'Unknown'} - ${holder} (${ball.zone || 'Unknown'})`;
+    if (ballInfoDisplay) ballInfoDisplay.textContent = `${ball.state || 'Unknown'} - ${holder} (${ball.zone || 'Unknown'})`;
 
     // Update timeline
-    timelineScrubber.value = currentFrameIndex;
-    timelineCurrent.textContent = `${parseFloat(frame.timestamp || 0).toFixed(2)}s`;
+    if (timelineScrubber) timelineScrubber.value = currentFrameIndex;
+    if (timelineCurrent) timelineCurrent.textContent = `${parseFloat(frame.timestamp || 0).toFixed(2)}s`;
 
     // Sync video if enabled
     if (videoSyncEnabled && videoPlayer.paused) {
@@ -507,19 +577,16 @@ function setupEventListeners() {
     });
 
     // Zone test button
-    if (zoneTestBtn) {
-        zoneTestBtn.addEventListener('click', toggleZoneTest);
-    }
     if (clearTestBtn) {
         clearTestBtn.addEventListener('click', clearZoneTest);
     }
-    
+
     // Test file selector
     if (testSelect) {
         testSelect.addEventListener('change', async (e) => {
             const testName = e.target.value;
             if (!testName) return;
-            
+
             await loadTestAnalysis(testName);
         });
     }
@@ -535,11 +602,11 @@ async function loadTestAnalysis(testName) {
             throw new Error('Test file not found');
         }
         const testData = await response.json();
-        
+
         // Store as current physics data
         physicsData = testData;
         currentFrameIndex = 0;
-        
+
         // Enable frame navigation
         const frames = testData.frames || [];
         if (frames.length > 0) {
@@ -549,64 +616,28 @@ async function loadTestAnalysis(testName) {
             timelineScrubber.max = frames.length - 1;
             timelineScrubber.value = 0;
         }
-        
+
         // Render first frame
         renderCurrentFrame();
-        
+
         // Show zone legend
         if (zoneLegend) zoneLegend.classList.remove('hidden');
-        
+
         // Update display
         const metadata = testData.metadata || {};
         currentTimeDisplay.textContent = `TEST: ${testName}`;
         infoFrames.textContent = `${frames.length} frames`;
         infoDuration.textContent = metadata.test_description || 'Test file';
         analysisInfo.classList.remove('hidden');
-        
+
     } catch (error) {
         console.error('Failed to load test analysis:', error);
         alert(`Failed to load test file: ${error.message}`);
     }
 }
 
-/**
- * Toggle zone test mode - loads TEST-10zone-all analysis
- */
-async function toggleZoneTest() {
-    if (zoneTestMode) {
-        clearZoneTest();
-        return;
-    }
-    
-    zoneTestMode = true;
-    zoneTestBtn.classList.add('hidden');
-    clearTestBtn.classList.remove('hidden');
-    if (zoneLegend) zoneLegend.classList.remove('hidden');
-    
-    // Load the test analysis via API
-    try {
-        const response = await fetch('/api/physics/TEST-10zone-all');
-        if (!response.ok) {
-            throw new Error('Test file not found');
-        }
-        const testData = await response.json();
-        
-        if (testData.frames && testData.frames.length > 0) {
-            courtRenderer.renderFrame(testData.frames[0]);
-            
-            // Update info displays
-            currentTimeDisplay.textContent = 'TEST MODE';
-            currentFrameDisplay.textContent = 'Zone Test (z0-z9)';
-            
-            const ball = testData.frames[0].ball || {};
-            ballInfoDisplay.textContent = `${ball.state} - ${ball.holder_track_id} (${ball.zone})`;
-        }
-    } catch (error) {
-        console.error('Failed to load test data:', error);
-        // Fallback: render inline test data
-        showZoneTestFallback();
-    }
-}
+
+
 
 /**
  * Fallback: show zone test with inline data if API fails

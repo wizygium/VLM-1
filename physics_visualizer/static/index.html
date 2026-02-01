@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Handball Physics Visualizer</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -26,12 +28,12 @@
             </div>
         </div>
 
-        <!-- Main Content: Video + Court Side-by-Side -->
-        <div class="main-content">
+        <!-- Main Content: Side-by-Side View -->
+        <div class="sim-container">
             <!-- Video Panel -->
-            <div class="video-panel">
-                <h2>Video</h2>
-                <div class="video-container">
+            <div class="panel video-panel">
+                <h2>Video Source</h2>
+                <div class="video-wrapper">
                     <video id="video-player" controls></video>
                     <div id="video-loading" class="loading-overlay">
                         <div class="spinner"></div>
@@ -41,66 +43,46 @@
                         <p>⚠️ Failed to load video</p>
                     </div>
                 </div>
-
-                <!-- Video Controls -->
-                <div class="controls">
-                    <button id="play-pause-btn" disabled>▶️ Play</button>
-                    <button id="prev-frame-btn" disabled>⏮ Prev Frame</button>
-                    <button id="next-frame-btn" disabled>⏭ Next Frame</button>
-                    <label>
-                        Speed: <select id="playback-speed">
-                            <option value="0.25">0.25x</option>
-                            <option value="0.5">0.5x</option>
-                            <option value="1" selected>1x</option>
-                            <option value="2">2x</option>
-                        </select>
-                    </label>
-                </div>
             </div>
 
-            <!-- Court Visualization Panel -->
-            <div class="court-panel">
-                <h2>Handball Court (10 Zones)</h2>
-                <div class="court-controls">
-                    <button id="zone-test-btn" class="zone-test-btn">🔍 Test All Zones</button>
-                    <button id="clear-test-btn" class="zone-test-btn hidden">✖ Clear Test</button>
-                    <select id="test-select" class="test-select">
-                        <option value="">Load Test File...</option>
-                    </select>
+            <!-- Court Panel -->
+            <div class="panel court-panel">
+                <h2>Simulation View</h2>
+                <div class="court-wrapper">
+                    <canvas id="court-canvas" width="600" height="600"></canvas>
                 </div>
-                <div class="court-container">
-                    <canvas id="court-canvas" width="700" height="700"></canvas>
-                </div>
-
-                <!-- Zone Legend -->
+                <!-- Zone Legend (Inline) -->
                 <div id="zone-legend" class="zone-legend hidden">
-                    <h4>10-Zone System</h4>
-                    <div class="zone-grid">
-                        <div class="zone-item"><span class="zone-label">z0</span> Goal Area</div>
-                        <div class="zone-item"><span class="zone-label">z1</span> Band1 Left</div>
-                        <div class="zone-item"><span class="zone-label">z2</span> Band1 Center</div>
-                        <div class="zone-item"><span class="zone-label">z3</span> Band1 Right</div>
-                        <div class="zone-item"><span class="zone-label">z4</span> Band2 Left</div>
-                        <div class="zone-item"><span class="zone-label">z5</span> Band2 Center</div>
-                        <div class="zone-item"><span class="zone-label">z6</span> Band2 Right</div>
-                        <div class="zone-item"><span class="zone-label">z7</span> Band3 Left</div>
-                        <div class="zone-item"><span class="zone-label">z8</span> Band3 Center</div>
-                        <div class="zone-item"><span class="zone-label">z9</span> Band3 Right</div>
+                    <div class="zone-grid-mini">
+                        <span>z0:GA</span> <span>z1:LW</span> <span>z2:LP</span> <span>z3:RW</span>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Frame Info -->
-                <div id="frame-info" class="frame-info">
-                    <div class="info-row">
-                        <strong>Time:</strong> <span id="current-time">0.000s</span>
-                    </div>
-                    <div class="info-row">
-                        <strong>Frame:</strong> <span id="current-frame">0 / 0</span>
-                    </div>
-                    <div class="info-row">
-                        <strong>Ball:</strong> <span id="ball-info">-</span>
+        <!-- Shared Controls Dashboard -->
+        <div class="dashboard-panel">
+            <div class="controls-main">
+                <button id="play-pause-btn" class="ctrl-btn primary" disabled>▶️ Play</button>
+                <button id="prev-frame-btn" class="ctrl-btn" disabled>⏮ Prev</button>
+                <div class="scrubber-container">
+                    <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="1" disabled>
+                    <div class="time-display">
+                        <span id="current-time">0.00s</span> / <span id="info-duration">0.0s</span>
                     </div>
                 </div>
+                <button id="next-frame-btn" class="ctrl-btn" disabled>Next ⏭</button>
+            </div>
+
+            <div class="controls-secondary">
+                <label>Speed:
+                    <select id="playback-speed">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="2">2x</option>
+                    </select>
+                </label>
             </div>
         </div>
 
@@ -133,9 +115,18 @@
                 <p class="placeholder">No players tracked</p>
             </div>
         </div>
+
+        <!-- System Log Panel -->
+        <div class="log-panel">
+            <h3>System Log</h3>
+            <div id="message-log" class="message-buffer">
+                <div class="log-entry system">System initialized...</div>
+            </div>
+        </div>
     </div>
 
     <script src="/static/court-renderer.js"></script>
     <script src="/static/app.js"></script>
 </body>
+
 </html>
