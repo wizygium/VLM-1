@@ -10,47 +10,48 @@ You are a PHYSICS OBSERVER tracking handball players and ball position.
 - **9m Line:** Same shape as 6m line, but with 9m radius.
 - **Lateral Divisions:** Left (x<7.5), Center (7.5≤x≤12.5), Right (x>12.5)
 
-## ZONE SYSTEM (10 zones: z0-z9)
+## ZONE SYSTEM (16 zones: z0-z15)
 
-| Zone | Band | Lateral | Depth Boundary | Lateral Boundary |
-|------|------|---------|----------------|------------------|
-| z0 | Goal Area | N/A | Inside 6m Arc | N/A |
-| z1 | Band 1 | Left | 6m < dist < 9m | x < 7.5 |
-| z2 | Band 1 | Center | 6m < dist < 9m | 7.5 ≤ x ≤ 12.5 |
-| z3 | Band 1 | Right | 6m < dist < 9m | x > 12.5 |
-| z4 | Band 2 | Left | 9m < dist ≤ 12m | x < 7.5 |
-| z5 | Band 2 | Center | 9m < dist ≤ 12m | 7.5 ≤ x ≤ 12.5 |
-| z6 | Band 2 | Right | 9m < dist ≤ 12m | x > 12.5 |
-| z7 | Band 3 | Left | 12m < y ≤ 20m | x < 7.5 |
-| z8 | Band 3 | Center | 12m < y ≤ 20m | 7.5 ≤ x ≤ 12.5 |
-| z9 | Band 3 | Right | 12m < y ≤ 20m | x > 12.5 |
+| Zone | Area | Description | Depth Boundary | Lateral Boundary |
+|------|------|-------------|----------------|------------------|
+| z0 | Goal | Goalkeeper position, goal mouth | Inside 6m Arc | N/A |
+| z1 | 6m-9m | Far Left Wing | 6m < dist < 9m | LW area |
+| z2 | 6m-9m | Left-Center | 6m < dist < 9m | LB interaction |
+| z3 | 6m-9m | Center | 6m < dist ≤ 8m | Flat 3m segment |
+| z4 | 6m-9m | Right-Center | 6m < dist < 9m | RB interaction |
+| z5 | 6m-9m | Far Right Wing | 6m < dist < 9m | RW area |
+| z6 | 8m-10m | Far Left Back | 8m < dist < 10m | Deep Wing |
+| z7 | 8m-10m | Left-Center Back| 8m < dist < 10m | LB area |
+| z8 | 8m-10m | Center Back | 8m < dist < 10m | Playmaker center |
+| z9 | 8m-10m | Right-Center Back| 8m < dist < 10m | RB area |
+| z10| 8m-10m | Far Right Back | 8m < dist < 10m | Deep Wing |
+| z11| 10m+ | Deep Left | y > 10m | |
+| z12| 10m+ | Deep Center | y > 10m | Aligned with goal |
+| z13| 10m+ | Deep Right | y > 10m | |
+| z14| Deep Wing | Deep Left Corner| y > 12m | Sideline corner |
+| z15| Deep Wing | Deep Right Corner| y > 12m | Sideline corner |
 
-**Visual Grid:**
+**Visual Reference:**
 ```
-              12m-20m from goal (Band 3)
-         [ z7 ]    [ z8 ]    [ z9 ]
-         └────────────────────────┘
-              DEEP COURT
+              10m+ from goal (Deep Court)
+         [ z11 ]    [ z12 ]    [ z13 ]
+         └───────────────────────────┘
+              (z14/z15 in corners)
 
-         ╭────── 9m-12m (Band 2) ──────╮
-         [ z4 ]    [ z5 ]    [ z6 ]
-         └────────────────────────────┘
-            BACKCOURT
+         ╭────── 8m-10m (Backcourt) ──────╮
+         [ z6 ] [ z7 ] [ z8 ] [ z9 ] [ z10]
+         └────────────────────────────────┘
 
-         ╭────── 6m-9m (Band 1) ──────╮
-         [ z1 ]    [ z2 ]    [ z3 ]
-         └────────────────────────────┘
-            CLOSE ATTACK
+         ╭────── 6m-9m (Close Attack) ────╮
+         [ z1 ] [ z2 ] [ z3 ] [ z4 ] [ z5 ]
+         └────────────────────────────────┘
 
-         \_______ GOAL (z0) ________/
-              (3m wide)
-
-         LEFT ← Center → RIGHT
+         \___________ GOAL (z0) __________/
 ```
 
 **Key Landmarks:**
 - Goal Posts: (8.5, 0) and (11.5, 0)
-- 7m Penalty Mark: (10, 7) → z2
+- 7m Penalty Mark: (10, 7) → z3
 - 4m Goalkeeper Line: (10, 4) → z0
 - Center of Half-Court: (10, 20) → z8
 

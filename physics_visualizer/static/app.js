@@ -30,17 +30,14 @@ const currentTimeDisplay = document.getElementById('current-time');
 const currentFrameDisplay = document.getElementById('current-frame');
 const ballInfoDisplay = document.getElementById('ball-info');
 const eventsList = document.getElementById('events-list');
-const playersList = document.getElementById('players-list');
+const attackersList = document.getElementById('attackers-list');
+const defendersList = document.getElementById('defenders-list');
 const analysisInfo = document.getElementById('analysis-info');
 const infoFrames = document.getElementById('info-frames');
 const infoDuration = document.getElementById('info-duration');
 const infoPlayers = document.getElementById('info-players');
 
-// Timeline info
-const timelineStart = document.getElementById('timeline-start');
-const timelineCurrent = document.getElementById('timeline-current');
-const timelineEnd = document.getElementById('timeline-end');
-
+const timelineEnd = document.getElementById('info-duration');
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     // Initialize court renderer
@@ -308,12 +305,7 @@ function updateAnalysisInfo() {
 
     if (analysisInfo) analysisInfo.classList.remove('hidden');
 
-    // Update timeline labels
-    if (timelineStart) timelineStart.textContent = '0.00s';
-    if (frames.length > 0 && timelineEnd) {
-        const lastFrame = frames[frames.length - 1];
-        timelineEnd.textContent = `${parseFloat(lastFrame.timestamp || 0).toFixed(2)}s`;
-    }
+    analysisInfo.classList.remove('hidden');
 }
 
 /**
@@ -340,7 +332,6 @@ function renderCurrentFrame() {
 
     // Update timeline
     if (timelineScrubber) timelineScrubber.value = currentFrameIndex;
-    if (timelineCurrent) timelineCurrent.textContent = `${parseFloat(frame.timestamp || 0).toFixed(2)}s`;
 
     // Sync video if enabled
     if (videoSyncEnabled && videoPlayer.paused) {
@@ -349,47 +340,126 @@ function renderCurrentFrame() {
             videoPlayer.currentTime = timestamp;
         }
     }
+
+    // Update active event highlighting
+    updateActiveEvent(frame.timestamp);
+}
+
+/**
+ * Update highlighting for active event card
+ */
+function updateActiveEvent(timestamp) {
+    const time = parseFloat(timestamp);
+    const cards = document.querySelectorAll('.event-card');
+    cards.forEach(card => {
+        const start = parseFloat(card.dataset.startTime);
+        const end = parseFloat(card.dataset.endTime);
+        const type = card.dataset.type;
+
+        let isActive = false;
+        if (start === end) {
+            // Instantaneous event (PASS/SHOT) - Use small buffer
+            isActive = Math.abs(start - time) < 0.15;
+        } else {
+            // Duration event (MOVE) - Check range
+            isActive = (time >= start && time <= end);
+        }
+
+        if (isActive) {
+            card.classList.add('active');
+        } else {
+            card.classList.remove('active');
+        }
+    });
 }
 
 /**
  * Display events list
  */
 function displayEvents() {
-    if (!eventsData || !eventsData.events || eventsData.events.length === 0) {
-        eventsList.innerHTML = '<p class="placeholder">No events detected</p>';
+    if (!eventsData && !physicsData) {
+        eventsList.innerHTML = '<p class="placeholder">No data available</p>';
         return;
     }
 
+    const allEvents = [];
+
+    // 1. Add Explicit Events (Passes, Shots)
+    if (eventsData && eventsData.events) {
+        eventsData.events.forEach(e => {
+            allEvents.push({
+                ...e,
+                startTime: e.time,
+                endTime: e.time
+            });
+        });
+    }
+
+    // 2. Identify 'In-Air' (Mid-Flight) Sequences from Physics Frames
+    if (physicsData && physicsData.frames) {
+        let currentSequence = null;
+
+        physicsData.frames.forEach(frame => {
+            const ball = frame.ball || {};
+            if (ball.state === 'In-Air' || ball.state === 'Air') {
+                if (!currentSequence) {
+                    currentSequence = {
+                        type: 'MOVE',
+                        time: frame.timestamp,
+                        startTime: frame.timestamp,
+                        endTime: frame.timestamp,
+                        zone: ball.zone,
+                        frames: 1
+                    };
+                } else {
+                    currentSequence.endTime = frame.timestamp;
+                    currentSequence.frames++;
+                }
+            } else {
+                if (currentSequence && currentSequence.frames >= 1) { // Captured every air frame
+                    allEvents.push(currentSequence);
+                }
+                currentSequence = null;
+            }
+        });
+        if (currentSequence) allEvents.push(currentSequence);
+    }
+
+    // Sort all by time
+    allEvents.sort((a, b) => parseFloat(a.time) - parseFloat(b.time));
+
     eventsList.innerHTML = '';
 
-    eventsData.events.forEach((event, index) => {
+    allEvents.forEach((event, index) => {
         const card = document.createElement('div');
-        card.className = `event-card ${event.type.toLowerCase()}`;
+        const typeStr = (event.type || 'UNKNOWN').toUpperCase();
+        card.className = `event-card ${typeStr.toLowerCase()}`;
+        card.dataset.time = event.time;
+        card.dataset.startTime = event.startTime;
+        card.dataset.endTime = event.endTime;
+        card.dataset.type = typeStr;
         card.onclick = () => seekToEvent(event);
 
-        const type = document.createElement('div');
-        type.className = 'event-type';
-        type.textContent = `${event.type} @ ${parseFloat(event.time).toFixed(2)}s`;
+        const typeLine = document.createElement('div');
+        typeLine.className = 'event-type';
+        const displayType = typeStr === 'MOVEMENT' ? 'MOVE' : typeStr;
+        typeLine.textContent = `${displayType} @ ${parseFloat(event.time).toFixed(1)}s`;
 
         const details = document.createElement('div');
         details.className = 'event-details';
 
-        if (event.type === 'PASS') {
-            const from = event.from_jersey || '?';
-            const to = event.to_jersey || '?';
-            details.innerHTML = `
-                #${from} → #${to}<br>
-                ${event.from_zone} → ${event.to_zone}
-            `;
-        } else if (event.type === 'SHOT') {
-            const shooter = event.shooter_jersey || '?';
-            details.innerHTML = `
-                Shooter: #${shooter}<br>
-                From: ${event.from_zone}
-            `;
+        if (typeStr === 'PASS') {
+            const from = event.from_jersey || event.from_role || '?';
+            const to = event.to_jersey || event.to_role || '?';
+            details.innerHTML = `<strong>#${from}→#${to}</strong><br>${event.from_zone}→${event.to_zone}`;
+        } else if (typeStr === 'SHOT') {
+            const shooter = event.shooter_jersey || event.shooter_role || '?';
+            details.innerHTML = `<strong>Shot: #${shooter}</strong><br>${event.from_zone}`;
+        } else if (typeStr === 'MOVEMENT' || typeStr === 'MOVE') {
+            details.innerHTML = `<em>Mid-Air</em><br>Zone: ${event.zone || '?'}`;
         }
 
-        card.appendChild(type);
+        card.appendChild(typeLine);
         card.appendChild(details);
         eventsList.appendChild(card);
     });
@@ -412,34 +482,54 @@ function displayPlayers() {
         });
     });
 
+    if (attackersList) attackersList.innerHTML = '';
+    if (defendersList) defendersList.innerHTML = '';
+
     if (playersMap.size === 0) {
-        playersList.innerHTML = '<p class="placeholder">No players tracked</p>';
+        if (attackersList) attackersList.innerHTML = '<p class="placeholder">No players tracked</p>';
         return;
     }
-
-    playersList.innerHTML = '';
 
     Array.from(playersMap.values()).forEach(player => {
         const card = document.createElement('div');
         card.className = `player-card ${player.team || 'unknown'}`;
 
+        // Flash Interaction
+        card.onclick = () => {
+            // Visual feedback on card
+            card.style.borderColor = '#FFF';
+            setTimeout(() => card.style.borderColor = '', 300);
+
+            // Trigger Flash on Court
+            if (courtRenderer) {
+                courtRenderer.flashPlayer(player.track_id);
+            }
+        };
+
         const trackId = document.createElement('div');
         trackId.className = 'player-track-id';
-        trackId.textContent = player.track_id;
+        trackId.textContent = player.role || player.track_id; // Prefer Role
 
         const jersey = document.createElement('div');
         jersey.className = 'player-jersey';
         jersey.textContent = `#${player.jersey_number || '?'}`;
 
-        const team = document.createElement('div');
-        team.className = 'player-team';
-        team.textContent = player.team || 'unknown';
+        // const team = document.createElement('div');
+        // team.className = 'player-team';
+        // team.textContent = player.team || 'unknown';
 
         card.appendChild(trackId);
         card.appendChild(jersey);
-        card.appendChild(team);
+        // card.appendChild(team);
 
-        playersList.appendChild(card);
+        // Sort into lists
+        const isDefender = player.team === 'white' || (player.role && player.role.startsWith('D'));
+
+        if (isDefender && defendersList) {
+            defendersList.appendChild(card);
+        } else if (attackersList) {
+            attackersList.appendChild(card);
+        }
     });
 }
 
@@ -490,39 +580,55 @@ function setupEventListeners() {
     });
 
     // Video state changes
+    let syncAnimationFrame;
+
+    const syncLoop = () => {
+        if (videoPlayer.paused || videoPlayer.ended) return;
+
+        if (physicsData && videoSyncEnabled) {
+            const currentTime = videoPlayer.currentTime;
+            const frames = physicsData.frames || [];
+
+            // Find closest frame efficiently (binary search or assume linear)
+            // Simple linear scan from current index is fast enough for 60Hz
+            // But basic finding closest frame:
+            let bestIndex = currentFrameIndex;
+            let minDiff = Infinity;
+
+            // Search window optimization: Look from current Index - 10 to current Index + 100
+            let startSearch = Math.max(0, currentFrameIndex - 5);
+            let endSearch = Math.min(frames.length, currentFrameIndex + 60); // Look ahead 1s
+
+            for (let i = startSearch; i < endSearch; i++) {
+                const fTime = parseFloat(frames[i].timestamp || 0);
+                const diff = Math.abs(fTime - currentTime);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestIndex = i;
+                }
+            }
+
+            if (bestIndex !== currentFrameIndex) {
+                currentFrameIndex = bestIndex;
+                renderCurrentFrame();
+            }
+        }
+
+        syncAnimationFrame = requestAnimationFrame(syncLoop);
+    };
+
     videoPlayer.addEventListener('play', () => {
         playPauseBtn.textContent = '⏸ Pause';
+        cancelAnimationFrame(syncAnimationFrame);
+        syncAnimationFrame = requestAnimationFrame(syncLoop);
     });
 
     videoPlayer.addEventListener('pause', () => {
         playPauseBtn.textContent = '▶️ Play';
+        cancelAnimationFrame(syncAnimationFrame);
     });
 
-    // Video time update - sync with physics frames
-    videoPlayer.addEventListener('timeupdate', () => {
-        if (!physicsData || !videoSyncEnabled) return;
 
-        const currentTime = videoPlayer.currentTime;
-        const frames = physicsData.frames || [];
-
-        // Find closest frame
-        let closestIndex = 0;
-        let closestDiff = Infinity;
-
-        frames.forEach((frame, index) => {
-            const frameTime = parseFloat(frame.timestamp || 0);
-            const diff = Math.abs(frameTime - currentTime);
-            if (diff < closestDiff) {
-                closestDiff = diff;
-                closestIndex = index;
-            }
-        });
-
-        if (closestIndex !== currentFrameIndex) {
-            currentFrameIndex = closestIndex;
-            renderCurrentFrame();
-        }
-    });
 
     // Playback speed
     playbackSpeed.addEventListener('change', (e) => {

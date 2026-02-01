@@ -8,19 +8,52 @@ def convert(input_path, output_path, s3_prefix=None):
         raw_data = json.load(f)
     
     metadata = {}
+    
+    # Support wrapped analysis format
+    if isinstance(raw_data, dict) and "analysis" in raw_data:
+        # Prefer 'video_file' from root if it exists
+        if "video_file" in raw_data:
+            metadata["video"] = raw_data["video_file"]
+        raw_data = raw_data["analysis"]
+    
+    metadata.setdefault("video", "")
     frames = []
     
     # Process raw items
     raw_frames = []
-    for item in raw_data:
+    max_timestamp = 0.0
+    
+    for i, item in enumerate(raw_data):
         if "video" in item:
-            metadata["video"] = item["video"]
+            # Only update if current video is empty or generic placeholder
+            current_video = metadata.get("video", "")
+            if not current_video or current_video == "handball_analysis.mp4":
+                metadata["video"] = item["video"]
         elif "frame" in item:
-            raw_frames.append(item["frame"])
+            frame_data = item["frame"]
+            raw_frames.append(frame_data)
+            
+            # Parse timestamp for duration estimation
+            time_str = frame_data.get("time", "")
+            try:
+                # Handle formats like "00:01.50", "1.5s", "[1.5]", "1.5 seconds"
+                clean_time = time_str.lower().replace("seconds", "").replace("s", "").replace("[", "").replace("]", "").strip()
+                if ":" in clean_time:
+                    parts = clean_time.split(":")
+                    if len(parts) == 2: # MM:SS.ms
+                        ts = float(parts[0]) * 60 + float(parts[1])
+                    else: # HH:MM:SS.ms
+                        ts = float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+                else:
+                    ts = float(clean_time)
+                max_timestamp = max(max_timestamp, ts)
+            except:
+                pass
             
     # Estimate total frames/duration if not present
-    metadata["total_frames"] = len(raw_frames)
-    metadata["duration_seconds"] = len(raw_frames) * 1.0 # Default 1fps if not specified
+    # If we have timestamps, use max_timestamp as duration (with 0.5s padding)
+    metadata["duration_seconds"] = max(max_timestamp + 0.5, len(raw_frames) * 1.0) 
+    metadata["total_frames"] = int(metadata["duration_seconds"] * 16) # Assume 16 fps for timeline
 
     video_path = metadata.get("video", "")
     
@@ -35,9 +68,24 @@ def convert(input_path, output_path, s3_prefix=None):
     processed_frames = []
     for i, raw_frame in enumerate(raw_frames):
         # Base frame info
+        time_str = raw_frame.get("time", "")
+        # Use existing parsing logic or i * 0.0625 if fails
+        try:
+            clean_time = time_str.lower().replace("seconds", "").replace("s", "").replace("[", "").replace("]", "").strip()
+            if ":" in clean_time:
+                parts = clean_time.split(":")
+                if len(parts) == 2:
+                    timestamp = float(parts[0]) * 60 + float(parts[1])
+                else:
+                    timestamp = float(parts[0]) * 3600 + float(parts[1]) * 60 + float(parts[2])
+            else:
+                timestamp = float(clean_time)
+        except:
+            timestamp = i * 0.0625
+
         new_frame = {
-            "time": raw_frame.get("time"),
-            "timestamp": i * 1.0, # approximate
+            "time": time_str,
+            "timestamp": timestamp,
             "game_state": raw_frame.get("game_state", "Attacking"),
             "original_event": raw_frame.get("event") # Keep original event for ref
         }
@@ -51,17 +99,34 @@ def convert(input_path, output_path, s3_prefix=None):
             "GK": "1"
         }
         
-        # Attacker (Possession)
+        # 1. Synthesize Attackers
+        attackers = raw_frame.get("attackers", {})
         poss = raw_frame.get("possession", {})
+        
+        # Add all attackers found in the "attackers" dictionary
+        for role, zone in attackers.items():
+            if zone: # Only add if zone is not None
+                players.append({
+                    "track_id": role,
+                    "role": role,
+                    "team": "blue", # Attackers
+                    "zone": f"z{zone}" if not str(zone).startswith("z") else zone,
+                    "jersey_number": jersey_map.get(role, "99")
+                })
+        
+        # Ensure Ball Carrier is in the list even if missing from "attackers" dict
         attacker_role = poss.get("player_role")
         attacker_zone = poss.get("zone")
         attacker_action = poss.get("action")
         
-        if attacker_role:
-            players.append({
+        # Check if carrier is already added
+        carrier_exists = any(p["role"] == attacker_role for p in players)
+        
+        if attacker_role and not carrier_exists:
+             players.append({
                 "track_id": attacker_role,
                 "role": attacker_role,
-                "team": "blue", # Map ARG/Attacker to blue
+                "team": "blue", 
                 "zone": f"z{attacker_zone}" if attacker_zone is not None else "z0",
                 "jersey_number": jersey_map.get(attacker_role, "99")
             })
@@ -70,11 +135,17 @@ def convert(input_path, output_path, s3_prefix=None):
         def_formation = raw_frame.get("defensive_formation", {})
         defenders = def_formation.get("defenders", {})
         for d_role, d_zone in defenders.items():
+            # Ensure zone starts with z
+            if d_zone is not None:
+                final_d_zone = f"z{d_zone}" if not str(d_zone).startswith("z") else d_zone
+            else:
+                final_d_zone = "z6"
+                
             players.append({
                 "track_id": d_role,
                 "role": d_role,
                 "team": "white", # Map Defenders to white
-                "zone": f"z{d_zone}" if d_zone is not None else "z6",
+                "zone": final_d_zone,
                 "jersey_number": d_role.replace("D", "")
             })
             
@@ -89,10 +160,13 @@ def convert(input_path, output_path, s3_prefix=None):
             ball_state = "Dribbling"
         
         # Determine Ball Zone
-        # If Shot, ball goes to z0 (Goal)
-        ball_zone = f"z{attacker_zone}" if attacker_zone is not None else "z0"
         if attacker_action == "Shot":
-            ball_zone = "z0" # Force ball to goal zone for Shot detection
+            ball_zone = "z0"
+        else:
+            if attacker_zone is not None:
+                ball_zone = f"z{attacker_zone}" if not str(attacker_zone).startswith("z") else attacker_zone
+            else:
+                ball_zone = "z0"
             
         new_frame["ball"] = {
             "zone": ball_zone,

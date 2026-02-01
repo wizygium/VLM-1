@@ -99,7 +99,25 @@ VLMs do not inherently know strict sports rules. You must "teach" them in the pr
 - [ ] Add batch processing for directory of videos
 - [ ] Implement frame caching
 
-## Gemini 3 Pro & Caching (Jan 2026)
+## Ontological Separation: Physics vs. Tactical Events (Feb 2026)
+
+### The "Observation Overload" Problem
+**Problem:** Asking a VLM to simultaneously track ball physics (zones, states) and tactical events (Passes, Shots) leads to "semantic bleed." The model might hallucinate a pass because it sees the ball in the air, or miss a pass because it's too focused on zone numbers.
+
+### The Solution: Layered Extraction
+1. **Raw Physics Layer (Observation)**:
+    - **VLM's Job**: Tell us *what* it sees per frame (e.g., "Ball: Air", "Holder: t5").
+    - **Focus**: High temporal resolution (16fps), spatial zones, and track IDs.
+    - **Output**: `physics.json` (continuous record of facts).
+2. **Tactical Event Layer (Inference)**:
+    - **Python/Logic Job**: Look at the `physics.json` timeline and *infer* events (e.g., "Ball state change Hand -> Air -> Hand = PASS").
+    - **Focus**: Tactical meaning, outcomes (Goal/Miss), and sequence grouping.
+    - **Output**: `events.json` (discrete historical records).
+
+### Why this works:
+- **Reduces Hallucination**: Programmatic derivation of a pass is 100% accurate if the physics tracking is correct.
+- **Improved UI Density**: Visualizers can now distinguish between "Raw State" (highlighting current zone) and "Event State" (contextual tactical cards).
+- **Rethinking 'MOVE'**: A 'MOVE' should represent a tactical shift (e.g., player entering a new zone) rather than just a ball-in-air physics state.
 
 ### Timeouts & Caching Strategy
 - **Issue**: Gemini 3 Pro's "Thinking" process is deep and slow (often >5 mins), causing standard API timeouts.

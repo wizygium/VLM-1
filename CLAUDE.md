@@ -1,6 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## 🚨 RULES OF ENGAGEMENT (CRITICAL)
+- **VERIFICATION FIRST**: NEVER close a GitHub issue or mark a master task as "Done" without explicit, typed user confirmation (e.g., "OK", "Verified", "Looks good").
+- **NO PREMATURE CLOSURE**: PROHIBITED from using `gh issue close` in the same turn as a fix implementation.
+- **PROCESS OVER SPEED**: If in doubt, ask for verification. User alignment is prioritized over task completion speed.
 
 ## Project Overview
 
@@ -129,13 +132,14 @@ ruff format .
 **Physics-Only Pipeline** ([gemini_physics_analyzer.py](gemini_physics_analyzer.py)):
 - **NEW:** Simplified 2-step pipeline for physics observation + programmatic event detection
 - **Advantages:** 5-10x faster, zero hallucination, 16fps high-resolution tracking
-- **Step 1 (VLM):** Track ball state (holder_track_id, zone, state) and player positions (track_id, zone, jersey_number) at 16fps
-- **Step 2 (Python):** Derive PASS/SHOT events from physics state changes using [physics_to_events.py](physics_to_events.py)
-- **Track ID System:** Persistent player IDs (t1, t2, t3...) with optional jersey numbers when readable
-- **49-Zone System:** Fine-grained spatial tracking with 6 depth bands (6m-7m, 7m-8m, ..., 11m-12m) × 8 lateral positions
-- **Adjacency Validation:** [validate_physics_output.py](validate_physics_output.py) ensures players only move to adjacent zones at 16fps
-- **S3 Integration:** [gemini_s3_analyzer.py](gemini_s3_analyzer.py) streams videos from AWS S3 with automatic cleanup
-- **See:** [README_PHYSICS_ANALYZER.md](README_PHYSICS_ANALYZER.md) and [README_S3_INTEGRATION.md](README_S3_INTEGRATION.md) for usage guides
+- **Step 1 (VLM):** Track ball state (holder_track_id, zone, state) and player positions (track_id, zone, jersey_number) at 16fps. This is the **Physics Observation Layer**.
+- **Step 2 (Python):** Derive PASS/SHOT/MOVE events from physics state changes using [physics_to_events.py](physics_to_events.py). This is the **Tactical Event Layer**.
+- **Ontological Separation**: It is critical to distinguish between raw physics frames (observable facts) and tactical events (inferred sequences). This reduces VLM hallucination and improves UI clarity.
+- **Track ID System:** Persistent player IDs (t1, t2, t3...) with optional jersey numbers when readable.
+- **49-Zone System:** Fine-grained spatial tracking with 6 depth bands (6m-7m, 7m-8m, ..., 11m-12m) × 8 lateral positions.
+- **Adjacency Validation:** [validate_physics_output.py](validate_physics_output.py) ensures players only move to adjacent zones at 16fps.
+- **S3 Integration:** [gemini_s3_analyzer.py](gemini_s3_analyzer.py) streams videos from AWS S3 with automatic cleanup.
+- **See:** [README_PHYSICS_ANALYZER.md](README_PHYSICS_ANALYZER.md) and [README_S3_INTEGRATION.md](README_S3_INTEGRATION.md) for usage guides.
 
 ### 3. Domain Knowledge Layer
 

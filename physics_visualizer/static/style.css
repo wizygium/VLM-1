@@ -345,76 +345,6 @@ select {
     font-family: 'Monaco', 'Courier New', monospace;
 }
 
-/* Timeline Panel */
-.timeline-panel {
-    padding: 20px 30px;
-    background: #f8f9fa;
-    border-top: 2px solid #e9ecef;
-}
-
-.timeline-panel h3 {
-    margin-bottom: 15px;
-    color: #495057;
-}
-
-.timeline-controls {
-    position: relative;
-    padding: 10px 0;
-}
-
-#timeline-scrubber {
-    width: 100%;
-    height: 8px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: #dee2e6;
-    border-radius: 4px;
-    outline: none;
-    cursor: pointer;
-}
-
-#timeline-scrubber::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    background: #667eea;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-#timeline-scrubber::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    background: #667eea;
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-#timeline-scrubber:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.timeline-markers {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-
-.timeline-info {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 10px;
-    font-size: 0.9em;
-    color: #6c757d;
-    font-family: 'Monaco', 'Courier New', monospace;
-}
 
 /* Events Panel */
 .events-panel {
@@ -431,17 +361,34 @@ select {
 
 .events-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
 }
 
 .event-card {
     background: #f8f9fa;
-    padding: 15px;
-    border-radius: 6px;
-    border-left: 4px solid #28a745;
+    padding: 6px;
+    border-radius: 4px;
+    border-left: 3px solid #28a745;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: all 0.2s;
+    min-height: 55px;
+}
+
+.event-card.active {
+    background: #e7f5ff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.4);
+    transform: scale(1.02);
+}
+
+.event-card.movement {
+    border-left-color: #adb5bd;
+    opacity: 0.8;
+}
+
+.event-card.movement.active {
+    opacity: 1;
 }
 
 .event-card.shot {
@@ -455,8 +402,12 @@ select {
 
 .event-type {
     font-weight: bold;
+    font-size: 0.75em;
     color: #28a745;
-    margin-bottom: 5px;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .event-card.shot .event-type {
@@ -464,7 +415,7 @@ select {
 }
 
 .event-details {
-    font-size: 0.9em;
+    font-size: 0.75em;
     color: #6c757d;
     margin-bottom: 5px;
 }

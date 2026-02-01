@@ -43,18 +43,21 @@ ANALYSIS_TASKS = {
     # Layer 2: Ball State Timeline (Physics Only)
     "2_ball_state": """
     TASK: BALL STATE TIMELINE (PHYSICS ONLY)
-    Objective: Track the object (Ball) and its holder. specificy timestamps.
+    Objective: Track the object (Ball) and its holder with HIGH TEMPORAL RESOLUTION.
+    Constraint: Report at 16 FPS (approx every 0.0625s) for the ENTIRE duration.
+    Constraint: Do NOT summarize. Every frame must have an entry if movement occurs.
     Constraint: Do NOT use words like "Pass", "Shot", "Feint", or "Assist".
     Constraint: Report ONLY physical states. Use strictly "z" prefixed zones (e.g. z10).
     Constraint: Do NOT infer a pass if the ball is bounced/dribbled. A bounce returns possession to the SAME player.
     Constraint: Only log a new 'Ball Holder' if you see the ball physically secured by a *different* player.
     
-    Format per timestamp (every ~0.5s or change of state):
+    Format per timestamp (Frame-by-Frame, approx every 0.06s / 16 FPS):
     - [Time] Ball Holder: [Role/Jersey] | Zone: [z0-z13] | Status: [Holding/Dribbling/In-Air (Pass)/In-Air (Bounce)/Loose]
     
     Example:
-    - [0.0s] Ball Holder: RB (#25) | Zone: z10 | Status: Holding
-    - [0.5s] Ball Holder: RB (#25) | Zone: z9 | Status: Dribbling (In-Air Bounce)
+    - [0.00s] Ball Holder: RB (#25) | Zone: z10 | Status: Holding
+    - [0.06s] Ball Holder: RB (#25) | Zone: z10 | Status: Holding
+    - [0.12s] Ball Holder: RB (#25) | Zone: z9 | Status: Dribbling (In-Air Bounce)
     - [1.2s] Ball Holder: None (In-Air) | Zone: z8 | Status: In-Air (Pass to CB)
     - [1.3s] Ball Holder: CB (#5) | Zone: z8 | Status: Holding
     """,
@@ -97,29 +100,11 @@ ANALYSIS_TASKS = {
     # Layer 6: Final JSON
     "6_json": """
     TASK: JSON GENERATION
-    Objective: Generate the FINAL JSON based on the Corrected Synthesis.
-    
-    Use this Schema:
-    [
-      { "video": "filename.mp4" },
-      {
-        "frame": {
-          "time": "1.50 seconds",
-          "visual_evidence": "...",
-          "possession": { "team": "...", "player_role": "...", "zone": "z8", "action": "..." },
-          "event": { "type": "PASS", "from_role": "...", "to_role": "...", "outcome": "..." },
-          "attackers": { "LW": "z1", "LB": "z6", ... },
-          "defensive_formation": {
-             "formation_type": "...",
-             "defenders": { "DL1": "z1", "DL2": "z2", ... } 
-          },
-          "game_state": "Attacking"
-        }
-      }
-    ]
+    Objective: Generate the FINAL JSON with HIGH DENSITY.
     
     Requirements:
     - Output ONLY valid JSON.
+    - DO NOT SUMMARIZE. Provide a 'frame' object for at least 30-50 timestamps across the duration to ensure smooth visualization.
     - Ensure logical continuity (from_zone of Event N+1 usually matches to_zone of Event N).
     - ALL ZONES MUST BE STRINGS STARTING WITH "z" (e.g., "z5", "z10").
     """
@@ -184,7 +169,7 @@ class GeminiCacheAnalyzer:
                 file_uri=video_file.uri,
                 mime_type=video_file.mime_type
             )
-            part.video_metadata = types.VideoMetadata(fps=10.0) 
+            part.video_metadata = types.VideoMetadata(fps=16.0) 
 
             content = types.Content(
                 role="user",
@@ -206,7 +191,7 @@ class GeminiCacheAnalyzer:
 
         # 3. Run Modular Steps
         config_verification = f"**Configuration Verification:**\n"
-        config_verification += f"- **Target FPS:** 10.0\n"
+        config_verification += f"- **Target FPS:** 16.0\n"
         config_verification += f"- **Spatial Resolution:** HIGH (1120 tokens/frame)\n"
         config_verification += f"- **Cache Name:** {handball_cache.name}\n"
         
