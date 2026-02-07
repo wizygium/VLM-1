@@ -190,3 +190,7 @@ if (eventsData?.roster) {
 // Fallback: build from physics frames (no roles)
 ```
 
+### Project Reorganization (Feb 2026)
+- **Centralized Data:** Moving all data to a dedicated `data/` workspace (`data/videos`, `data/analyses`) simplifies path management and separation of concerns.
+- **Archiving:** Aggressively archiving legacy scripts (`archive/`) reduces cognitive load and prevents accidental usage of outdated pipelines.
+- **Documentation:** Grouping non-essential docs into `docs/` keeps the root clean and focused on the active entry points.

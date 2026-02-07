@@ -9,6 +9,7 @@ with interactive handball court visualization.
 import json
 import os
 from pathlib import Path
+VIDEO_DIR = Path(__file__).parent.parent / "data" / "videos"
 from typing import Optional
 from datetime import timedelta
 
@@ -33,7 +34,7 @@ app.add_middleware(
 )
 
 BASE_DIR = Path(__file__).parent
-RESULTS_DIR = Path(__file__).parent.parent / "results_physics"  # Look in parent directory
+RESULTS_DIR = Path(__file__).parent.parent / "data" / "analyses"  # Look in data/analyses directory
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

@@ -31,7 +31,7 @@ pip install -e ".[dev]"  # Include pytest, ruff
 **Gemini Cached Pipeline** (For Gemini 3 Pro with timeout handling):
 ```bash
 # Modular cached pipeline - splits analysis into 6 steps to avoid timeouts
-python gemini_cache_analyzer.py videos/ -o results_cache -m gemini-3-pro-preview
+python archive/gemini_cache_analyzer.py data/videos/ -o archive/results_cache -m gemini-3-pro-preview
 
 # Requires google-genai SDK (v1 Beta), NOT google-generativeai
 # pip install google-genai
@@ -40,26 +40,26 @@ python gemini_cache_analyzer.py videos/ -o results_cache -m gemini-3-pro-preview
 **Gemini Batch Analyzer** (For standard Gemini models):
 ```bash
 # Process directory of videos
-python gemini_batch_analyzer.py videos/ -o results/ --context GerIsl.json
+python archive/gemini_batch_analyzer.py data/videos/ -o archive/results/ --context data/match_context.json
 
 # Single video
-python gemini_batch_analyzer.py video.mp4 -m gemini-2.0-flash-exp -v
+python archive/gemini_batch_analyzer.py data/videos/video.mp4 -m gemini-2.0-flash-exp -v
 ```
 
 **OpenRouter Pipeline** (Nvidia Nemotron, Qwen):
 ```bash
 # Requires OPENROUTER_API_KEY env var
-python openrouter_analyzer.py videos/ -o results_openrouter -m nvidia/nemotron-nano-12b-v2-vl:free
+python archive/openrouter_analyzer.py videos/ -o archive/results_openrouter -m nvidia/nemotron-nano-12b-v2-vl:free
 ```
 
 **Two-Stage Physics→Events Pipeline (RECOMMENDED - Feb 2026):**
 ```bash
 # Stage 1: Physics Observation (Gemini VLM, 16fps, track-based)
-python gemini_cache_analyzer_v2.py videos/clip.mp4 --output results_physics --verbose
+python gemini_cache_analyzer_v2.py data/videos/clip.mp4 --output data/analyses --verbose
 # Output: *_physics.json with frames, ball state, player positions
 
 # Stage 2: Event Inference (Python, instant)
-python physics_to_events.py results_physics/clip_physics.json --output results_physics/clip_events.json
+python physics_to_events.py data/analyses/clip_physics.json --output data/analyses/clip_events.json
 # Output: *_events.json with roster (roles), events (PASS/SHOT/MOVE), enriched frames
 
 # Visualizer

@@ -41,10 +41,10 @@ Stage 2: Event Inference (Python)
 ### Run Full Pipeline
 ```bash
 # Stage 1: Physics (runs Gemini, ~3 mins per video)
-python gemini_cache_analyzer_v2.py videos/clip.mp4 --output results_physics --verbose
+python gemini_cache_analyzer_v2.py data/videos/clip.mp4 --output data/analyses --verbose
 
 # Stage 2: Events (runs locally, instant)
-python physics_to_events.py results_physics/clip_physics.json --output results_physics/clip_events.json
+python physics_to_events.py data/analyses/clip_physics.json --output data/analyses/clip_events.json
 ```
 
 ### Visualizer
@@ -61,9 +61,12 @@ python server.py
 | `gemini_cache_analyzer_v2.py` | Stage 1: VLM physics extraction (16fps) |
 | `physics_to_events.py` | Stage 2: Event inference from physics |
 | `prompts/physics_prompt.md` | System instruction for VLM |
-| `inference/role_assigner.py` | Role inference logic (zones→roles) |
-| `inference/event_detector.py` | Event detection logic |
+| `inference/` | Python logic for role assignment and event detection |
 | `physics_visualizer/` | Web UI for viewing results |
+| `data/videos/` | Input video directory |
+| `data/analyses/` | Output JSON directory |
+| `docs/` | Project documentation |
+| `archive/` | Legacy scripts and results |
 
 ## 5. JSON Formats
 

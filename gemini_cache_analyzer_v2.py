@@ -349,7 +349,7 @@ class GeminiCacheAnalyzer:
 
 @click.command()
 @click.argument("input_path", type=click.Path(exists=True))
-@click.option("--output", "-o", default="results_physics", help="Output directory")
+@click.option("--output", "-o", default="data/analyses", help="Output directory")
 @click.option("--model", "-m", default="gemini-3-pro-preview", help="Model to use")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.option("--api-key", envvar="GEMINI_API_KEY")

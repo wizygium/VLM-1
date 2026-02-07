@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/Users/lukewildman/Projects/VLM-1/physics_visualizer/server.py", line 11, in <module>
+    VIDEO_DIR = Path(__file__).parent.parent / "data" / "videos"
+NameError: name 'Path' is not defined

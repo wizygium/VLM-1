@@ -61,17 +61,20 @@ Use the dropdown to select from available physics analyses in `results_physics/`
 
 ### Events Panel
 - **PASS Events**: Green cards showing pass details
-  - From → To jersey numbers
+  - From → To roles (CB → LB, etc.)
   - Zone movements
 - **SHOT Events**: Red cards showing shot details
-  - Shooter jersey number
+  - Shooter role/jersey
   - Origin zone
+- **TURNOVER Events**: Orange cards showing possession loss
+- **MOVE Events**: Blue cards showing significant tactical movement
 - Click any event card to jump to that moment
 
 ### Players Panel
 - Lists all tracked players with:
-  - Track ID (t1, t2, t3...)
-  - Jersey number (#25, #12, etc.)
+  - **Inferred Role** (LB, CB, PV, DL1...)
+  - Track ID (t1, t2...)
+  - Jersey number (#25, #12...)
   - Team color
 
 ## How It Works

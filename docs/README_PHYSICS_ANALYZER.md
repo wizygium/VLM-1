@@ -84,19 +84,16 @@ Lateral:          1     2     3     4     5     6     7     8
 
 ## Usage
 
-### 1. Physics Observation
+### 1. Physics Observation (Stage 1)
 
-Analyze a video to extract physics facts:
+Analyze a video to extract physics facts using the Gemini cache-based analyzer (16fps):
 
 ```bash
-# Single video
-python gemini_physics_analyzer.py video.mp4 -o results_physics/ -v
+# Single video (cached context created automatically)
+python gemini_cache_analyzer_v2.py video.mp4 --output results_physics --verbose
 
-# Batch process directory
-python gemini_physics_analyzer.py videos/ -o results_physics/ -v
-
-# Use custom model
-python gemini_physics_analyzer.py video.mp4 -m gemini-3-flash-preview
+# Batch process directory of videos
+python gemini_cache_analyzer_v2.py videos/ --output results_physics --verbose
 ```
 
 **Output**: `results_physics/video_physics.json`
@@ -276,10 +273,10 @@ Frame 3:
 
 ## Configuration
 
-### gemini_physics_analyzer.py Settings
+### gemini_cache_analyzer_v2.py Settings
 
 ```python
-MODEL_NAME = "gemini-3-flash-preview"
+MODEL_NAME = "gemini-1.5-pro-latest" # Or "gemini-3-flash-preview" if available
 FPS = 16.0                               # Frame rate
 TEMPERATURE = 0.2                        # Low for factual observation
 MEDIA_RESOLUTION = "MEDIA_RESOLUTION_HIGH"  # 280 tokens/frame
@@ -369,9 +366,8 @@ export GEMINI_API_KEY='your-key-here'
 ## Files
 
 ### Core Scripts
-- [gemini_physics_analyzer.py](gemini_physics_analyzer.py): Physics observation VLM pipeline
-- [physics_to_events.py](physics_to_events.py): Event derivation from physics
-- [validate_physics_output.py](validate_physics_output.py): Schema and physics validation
+- [gemini_cache_analyzer_v2.py](gemini_cache_analyzer_v2.py): Physics observation VLM pipeline (Stage 1)
+- [physics_to_events.py](physics_to_events.py): Event derivation from physics (Stage 2)
 
 ### Configuration
 - [physics_prompt.md](physics_prompt.md): System instruction for Gemini VLM

@@ -1,10 +1,12 @@
 #!/bin/bash
 # Full pipeline for processing handball videos from S3
+# Uses Gemini Cache Analyzer V2 (Stage 1) and Python Inference (Stage 2)
 
 set -e
 
 S3_PREFIX=$1
-OUTPUT_DIR=${2:-results_physics}
+OUTPUT_DIR=${2:-data/analyses}
+TEMP_VIDEO_DIR="data/videos/temp"
 
 # Colors for output
 RED='\033[0;31m'
@@ -19,126 +21,58 @@ if [ -z "$S3_PREFIX" ]; then
     echo "  # Single video"
     echo "  $0 s3://my-bucket/video.mp4"
     echo
-    echo "  # Batch process directory"
-    echo "  $0 s3://my-bucket/handball-clips/"
-    echo
-    echo "  # Custom output directory"
-    echo "  $0 s3://my-bucket/videos/ custom_results/"
     exit 1
 fi
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}  Handball Video Analysis Pipeline (S3 → Physics → Events)${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo
 echo "Input:  $S3_PREFIX"
 echo "Output: $OUTPUT_DIR"
 echo
 
-# Check for required environment variables
+# Check env vars
 if [ -z "$GEMINI_API_KEY" ]; then
     echo -e "${RED}❌ Error: GEMINI_API_KEY not set${NC}"
-    echo "Please set your Gemini API key:"
-    echo "  export GEMINI_API_KEY='your-key-here'"
     exit 1
 fi
 
-# Check if AWS credentials are configured
-if ! aws sts get-caller-identity &>/dev/null; then
-    echo -e "${RED}❌ Error: AWS credentials not configured${NC}"
-    echo "Please configure AWS credentials:"
-    echo "  aws configure"
-    exit 1
-fi
+mkdir -p "$OUTPUT_DIR"
+mkdir -p "$TEMP_VIDEO_DIR"
 
-echo -e "${GREEN}✓ Gemini API key configured${NC}"
-echo -e "${GREEN}✓ AWS credentials configured${NC}"
-echo
+# Download Logic
+VIDEO_FILENAME=$(basename "$S3_PREFIX")
+LOCAL_VIDEO="$TEMP_VIDEO_DIR/$VIDEO_FILENAME"
 
-# Determine if batch or single video
-BATCH_FLAG=""
-if [[ "$S3_PREFIX" == */ ]] || [[ "$S3_PREFIX" != *.mp4 ]]; then
-    BATCH_FLAG="--batch"
-    echo -e "${BLUE}Mode: Batch processing (all .mp4 files in prefix)${NC}"
+if [[ "$S3_PREFIX" == s3://* ]]; then
+    echo -e "${BLUE}[Download] Fetching from S3...${NC}"
+    aws s3 cp "$S3_PREFIX" "$LOCAL_VIDEO" || { echo -e "${RED}Failed to download${NC}"; exit 1; }
 else
-    echo -e "${BLUE}Mode: Single video${NC}"
+    # Assume local path provided
+    LOCAL_VIDEO="$S3_PREFIX"
 fi
-echo
 
-# Step 1: Physics Analysis
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  Step 1: Physics Observation (VLM)${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo
+# Step 1: Physics Analysis (VLM)
+echo -e "${BLUE}[Stage 1] Physics Observation (16fps)${NC}"
+python gemini_cache_analyzer_v2.py "$LOCAL_VIDEO" --output "$OUTPUT_DIR" --verbose
 
-python gemini_s3_analyzer.py "$S3_PREFIX" $BATCH_FLAG -o "$OUTPUT_DIR" -v
+# Step 2: Event Derivation
+echo -e "${BLUE}[Stage 2] Event Inference${NC}"
+PHYSICS_JSON="$OUTPUT_DIR/${VIDEO_FILENAME%.*}_physics.json"
+EVENTS_JSON="$OUTPUT_DIR/${VIDEO_FILENAME%.*}_events.json"
 
-# Step 2: Validation
-echo
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  Step 2: Validating Physics Outputs${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo
-
-VALIDATION_FAILED=0
-for physics_file in "$OUTPUT_DIR"/*_physics.json; do
-    if [ -f "$physics_file" ]; then
-        echo "Validating $(basename "$physics_file")..."
-        if python validate_physics_output.py "$physics_file"; then
-            echo -e "${GREEN}✓ Validation passed${NC}"
-        else
-            echo -e "${RED}✗ Validation failed${NC}"
-            VALIDATION_FAILED=1
-        fi
-        echo
-    fi
-done
-
-# Step 3: Event Derivation
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  Step 3: Deriving Events (Programmatic)${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo
-
-for physics_file in "$OUTPUT_DIR"/*_physics.json; do
-    if [ -f "$physics_file" ]; then
-        base=$(basename "$physics_file" _physics.json)
-        echo "Deriving events for $base..."
-        python physics_to_events.py "$physics_file" \
-            -o "$OUTPUT_DIR/${base}_events.json" -v
-        echo
-    fi
-done
-
-# Step 4: Statistics Summary
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  Step 4: Statistics Summary${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo
-
-for physics_file in "$OUTPUT_DIR"/*_physics.json; do
-    if [ -f "$physics_file" ]; then
-        echo -e "${BLUE}$(basename "$physics_file")${NC}"
-        python physics_to_events.py "$physics_file" --stats
-        echo
-    fi
-done
-
-# Final Summary
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  Pipeline Complete!${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo
-echo "Results saved to: $OUTPUT_DIR"
-echo
-echo "Output files:"
-ls -lh "$OUTPUT_DIR"/*.json 2>/dev/null || echo "  (no JSON files found)"
-echo
-
-if [ $VALIDATION_FAILED -eq 1 ]; then
-    echo -e "${RED}⚠️  Warning: Some validation checks failed${NC}"
-    echo "Review the validation output above for details"
-    exit 1
+if [ -f "$PHYSICS_JSON" ]; then
+    python physics_to_events.py "$PHYSICS_JSON" --output "$EVENTS_JSON" --verbose
 else
-    echo -e "${GREEN}✅ All validation checks passed!${NC}"
+    echo -e "${RED}Physics file not found: $PHYSICS_JSON${NC}"
+    exit 1
 fi
+
+# Cleanup
+if [[ "$S3_PREFIX" == s3://* ]]; then
+    echo -e "${BLUE}[Cleanup] Removing temp video...${NC}"
+    rm "$LOCAL_VIDEO"
+fi
+
+echo -e "${GREEN}✅ Pipeline Complete! Results in $OUTPUT_DIR${NC}"
+

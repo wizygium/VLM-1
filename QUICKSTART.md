@@ -10,15 +10,15 @@ pip install google-genai click
 
 ### Stage 1: Physics Extraction (Gemini VLM)
 ```bash
-python gemini_cache_analyzer_v2.py videos/clip.mp4 --output results_physics --verbose
+python gemini_cache_analyzer_v2.py data/videos/clip.mp4 --output data/analyses --verbose
 ```
-**Output:** `results_physics/clip_physics.json` - raw observations at 16fps
+**Output:** `data/analyses/clip_physics.json` - raw observations at 16fps
 
 ### Stage 2: Event Inference (Python)
 ```bash
-python physics_to_events.py results_physics/clip_physics.json --output results_physics/clip_events.json
+python physics_to_events.py data/analyses/clip_physics.json --output data/analyses/clip_events.json
 ```
-**Output:** `results_physics/clip_events.json` - roster with roles, detected events
+**Output:** `data/analyses/clip_events.json` - roster with roles, detected events
 
 ## Visualizer
 ```bash
@@ -34,6 +34,9 @@ python server.py
 | `physics_to_events.py` | Stage 2 event inference |
 | `prompts/physics_prompt.md` | VLM system instruction |
 | `physics_visualizer/` | Web visualization |
+| `data/videos/` | Input videos |
+| `data/analyses/` | Output JSONs |
+| `docs/` | Documentation |
 
 ## Troubleshooting
 - **API Error**: Check `GEMINI_API_KEY` is set
