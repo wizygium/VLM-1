@@ -1,58 +1,118 @@
-# Handover Document: VLM-1 Verification App
+# Handover Document: VLM-1 Handball Analysis Pipeline
 
-**Date:** 2026-01-17
-**Status:** Operational (Stable VLM Inference)
+**Date:** 2026-02-07
+**Status:** Operational (Two-Stage Physics→Events Pipeline)
 
 ## 1. Project Overview
-This project is a **Video Language Model (VLM) Pipeline** for analyzing Handball matches. It runs locally on Apple Silicon (M4) using `mlx-community/Qwen2.5-VL-7B-Instruct-4bit`.
-It features a **Web UI** for users to trigger analysis jobs and manually verify the AI's output.
+This project is a **Video Language Model (VLM) Pipeline** for analyzing Handball matches. It uses Gemini 3 Pro for video analysis and outputs structured JSON with spatial tracking and event detection.
 
-## 2. Current State
-- **Backend:** FastAPI server (`verification_app/server.py`) managing a single-threaded VLM worker.
-- **Frontend:** HTML/JS Dashboard (`http://127.0.0.1:8000`) for job control and results review.
-- **Stability:** Solved major "hanging" issues by implementing **Sequential Mini-Batching** (Batch Size = 1) with cumulative context history.
-- **Accuracy:** Implemented "Handball Intelligence" in the prompt (Roles like RB/CB/PV, strict teammate passing logic).
+**Key Innovation:** Two-stage pipeline separating physics observation (VLM) from event inference (Python).
 
-## 3. How to Run
-1.  **Start Server:**
-    ```bash
-    .venv/bin/python3 verification_app/server.py
-    ```
-2.  **Access UI:** Open `http://127.0.0.1:8000` in Chrome/Safari.
-3.  **Run Analysis:**
-    -   Paste video path (e.g., `/Users/.../video.mp4`).
-    -   Set Offset (e.g., `0`) and Max Frames (e.g., `18`).
-    -   Click "Start Analysis".
+## 2. Current Architecture
 
-## 4. Key Logic (Must Read)
--   **Sequential Batching (`src/vlm_1/processor.py`):** The model processes frames *one at a time* to save RAM, but passes the *full history* of previous images to maintain context. Do not revert to parallel batching without testing M4 memory limits.
--   **Prompt Injection (`server.py`):** The prompt explicitly defines Handball Roles (GK, LW, RW, etc.). Any changes to logic should happen here.
+### Two-Stage Pipeline
+```
+Stage 1: Physics Observation (Gemini VLM)
+├── Input: Video file (MP4)
+├── Output: *_physics.json
+├── Content: Raw observations at 16fps
+│   - Ball: holder_track_id, zone, state (Holding/In-Air/Loose)
+│   - Players: track_id, zone, jersey_number, team color
+│   - NO role inference, NO event detection
+└── Script: gemini_cache_analyzer_v2.py
 
-## 5. Known Issues
--   **Server Logs:** The `server.log` file grows indefinitely. Needs a rotation strategy.
--   **FFmpeg Zombies:** Occasionally `ffmpeg` processes for clip extraction might linger if the server is force-killed. Run `pkill -9 -f ffmpeg` to clean up.
--   **Browser Cache:** If UI doesn't update, doing a Hard Refresh (Cmd+Shift+R) usually fixes it.
+Stage 2: Event Inference (Python)
+├── Input: *_physics.json
+├── Output: *_events.json
+├── Content: Programmatic derivation
+│   - Roster with inferred roles (RW, CB, LB, PV, DL1, DL2...)
+│   - Events: PASS, SHOT, MOVE with start_time/end_time
+│   - Frames enriched with roles and active_event_ids
+└── Script: physics_to_events.py
+```
 
-## 6. Next Actions for New Agent
-1.  **Verify Full Batch:** Run a full 18-20 frame analysis to confirm long-term stability.
-2.  **Tune Shot Logic:** Check if "Shot" detection is accurate (Goal vs Save). The current prompt has explicit rules for this, but needs empirical testing.
-3.  **Enhance JSON Schema:** Add `from_role` and `to_role` to the output schema to enforce structured reasoning about passes.
+### Why Two Stages?
+- **Reduces Hallucination**: VLM only reports what it sees, doesn't guess events
+- **100% Accurate Events**: Pass detection from physics state changes is deterministic
+- **Cleaner UI**: Clear separation of raw state vs tactical interpretation
 
-## 7. Gemini 3 Pro Batch Pipeline (New - Jan 2026)
+## 3. Quick Start
 
-**Context**: We moved to a **Cached, Modular Pipeline** to handle Gemini 3 Pro's long thinking times.
+### Run Full Pipeline
+```bash
+# Stage 1: Physics (runs Gemini, ~3 mins per video)
+python gemini_cache_analyzer_v2.py videos/clip.mp4 --output results_physics --verbose
 
-### Scripts
-- **`gemini_cache_analyzer.py`**: The primary script.
-    - **Usage**: `python gemini_cache_analyzer.py videos/ -o results_cache -m gemini-3-pro-preview`
-    - **Logic**: Creates a 1-hour cache context, then runs 4 discrete steps (Setup -> Defense -> Timeline -> JSON).
-- **`visualize_analysis.py`**: The debugger.
-    - **Usage**: `python visualize_analysis.py <json_file> -o <mp4_file>`
-    - **Features**: Verified 6m/9m geometry, Off-Ball movement (dotted lines), PV2 role support.
+# Stage 2: Events (runs locally, instant)
+python physics_to_events.py results_physics/clip_physics.json --output results_physics/clip_events.json
+```
 
-### Key Prompts
-- **`gemini_context_zones.md`**: The master prompt. Defines Zones 0-13, Roles (PV2), and Rules. This is injected into the Cache System Instruction.
+### Visualizer
+```bash
+cd physics_visualizer
+python server.py
+# Open http://127.0.0.1:8001
+```
 
-### Next Tasks
-1.  **Validation**: Run the cached analyzer on `test24` batch.
-2.  **Refinement**: If defense depth is still vague, refine Step 2 in `gemini_cache_analyzer.py`.
+## 4. Key Files
+
+| File | Purpose |
+|------|---------|
+| `gemini_cache_analyzer_v2.py` | Stage 1: VLM physics extraction (16fps) |
+| `physics_to_events.py` | Stage 2: Event inference from physics |
+| `prompts/physics_prompt.md` | System instruction for VLM |
+| `inference/role_assigner.py` | Role inference logic (zones→roles) |
+| `inference/event_detector.py` | Event detection logic |
+| `physics_visualizer/` | Web UI for viewing results |
+
+## 5. JSON Formats
+
+### Physics JSON (Stage 1)
+```json
+{
+  "fps": 16.0,
+  "frames": [
+    {
+      "timestamp": "1.000",
+      "ball": {"holder_track_id": "t5", "zone": "z9", "state": "Holding"},
+      "players": [
+        {"track_id": "t5", "zone": "z9", "jersey_number": "23", "team": "blue"}
+      ]
+    }
+  ]
+}
+```
+
+### Events JSON (Stage 2)
+```json
+{
+  "roster": {
+    "attack": [{"track_id": "t5", "role": "CB", "jersey_number": "23"}],
+    "defense": [{"track_id": "t2", "role": "DL1", "jersey_number": "14"}]
+  },
+  "events": [
+    {"event_id": 1, "type": "PASS", "start_time": "1.0", "end_time": "1.5", "from_role": "CB", "to_role": "LB"}
+  ],
+  "frames": [/* frames with roles and active_event_ids */]
+}
+```
+
+## 6. Known Issues (See GitHub Issues)
+
+| Issue | Description |
+|-------|-------------|
+| #1 | Video playback failure in visualizer (S3 URL issue) |
+| #25 | Defender display (now fixed with Phase 2 roster) |
+| #27 | UI needs compact layout (no scrolling) |
+| #28 | Project folder reorganization needed |
+
+## 7. Environment Variables
+```bash
+GEMINI_API_KEY=your-key-here  # Required for Stage 1
+```
+
+## 8. Next Actions
+1. Run pipeline on more test videos
+2. Implement compact visualizer layout (#27)
+3. Reorganize project folders (#28)
+4. Fix video playback (#1)

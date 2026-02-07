@@ -52,25 +52,19 @@ python gemini_batch_analyzer.py video.mp4 -m gemini-2.0-flash-exp -v
 python openrouter_analyzer.py videos/ -o results_openrouter -m nvidia/nemotron-nano-12b-v2-vl:free
 ```
 
-**Physics-Only Analyzer** (Gemini 3 Flash - NEW, Recommended):
+**Two-Stage Physics→Events Pipeline (RECOMMENDED - Feb 2026):**
 ```bash
-# Local video files
-python gemini_physics_analyzer.py video.mp4 -o results_physics/ -v
+# Stage 1: Physics Observation (Gemini VLM, 16fps, track-based)
+python gemini_cache_analyzer_v2.py videos/clip.mp4 --output results_physics --verbose
+# Output: *_physics.json with frames, ball state, player positions
 
-# Or stream directly from S3 (requires AWS credentials)
-python gemini_s3_analyzer.py s3://bucket/video.mp4 -o results_physics/ -v
+# Stage 2: Event Inference (Python, instant)
+python physics_to_events.py results_physics/clip_physics.json --output results_physics/clip_events.json
+# Output: *_events.json with roster (roles), events (PASS/SHOT/MOVE), enriched frames
 
-# Batch process all videos in S3 prefix
-python gemini_s3_analyzer.py s3://bucket/videos/ --batch -o results_physics/ -v
-
-# Validate physics output (schema, temporal, adjacency)
-python validate_physics_output.py results_physics/video_physics.json
-
-# Derive events programmatically (PASS/SHOT from physics facts)
-python physics_to_events.py results_physics/video_physics.json -o results_physics/video_events.json -v
-
-# View statistics
-python physics_to_events.py results_physics/video_physics.json --stats
+# Visualizer
+cd physics_visualizer && python server.py
+# Open http://127.0.0.1:8001
 ```
 
 **Visualization & Validation**:

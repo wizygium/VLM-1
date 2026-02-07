@@ -138,3 +138,55 @@ VLMs do not inherently know strict sports rules. You must "teach" them in the pr
 - **Geometry**: Draw accurate Handball court lines (Quarter-Arcs + Straight lines), don't approximate with semi-circles.
 - **Orientation**: Ensure X-axis is "Attacker POV" (Left = Positive X) if that's how the user thinks.
 - **Off-Ball Logic**: Distinguish `MOVEMENT` events with a `with_ball` boolean to visualize cuts (dotted lines) vs drives (solid lines).
+
+## Two-Stage Pipeline Refinements (Feb 2026)
+
+### Track-Based Physics Prompts
+**Problem:** Using role names (LW, CB, PV) in VLM prompts causes semantic bleed - the model tries to infer tactical meaning instead of just observing.
+
+**Solution:** Strip all role references from physics prompts:
+- Use track IDs: t1, t2, t3... (assigned by order of appearance)
+- Use team colors: "blue", "white", "yellow" (from jersey)
+- Use zones: z0, z1, z2... (spatial position)
+- VLM reports ONLY what it sees, never infers roles
+
+### Stage 2 Role Assignment
+**Learning:** Roles should be inferred programmatically from zones:
+- z10, z11 = Wings (LW, RW)
+- z9 = CB zone
+- z8 = LB zone
+- z7 = RB zone
+- z2, z3 = Pivot zones (PV)
+- z0, z1 = Defensive zones (DL1, DL2, etc.)
+
+### Event Format Changes
+**Critical:** Events now use `start_time` and `end_time` instead of single `time`:
+```json
+{"type": "PASS", "start_time": "1.0", "end_time": "1.5", "from_role": "CB", "to_role": "LB"}
+```
+
+Visualizer code must handle this:
+```javascript
+time: e.start_time || e.time  // Fallback for backwards compatibility
+```
+
+### FPS Optimization
+**Discovery:** 16 FPS is optimal for handball:
+- Fast enough to capture passes (ball in air ~0.5s)
+- Slow enough to avoid redundant frames
+- Matches typical broadcast frame intervals
+
+### Browser Cache Traps
+**Issue:** After updating JS/CSS, browser serves cached versions causing confusion.
+**Fix:** Always hard refresh (Cmd+Shift+R) or disable cache in DevTools during development.
+
+### Roster Display Logic
+**Pattern:** Use Phase 2 roster data directly for player cards:
+```javascript
+if (eventsData?.roster) {
+    renderRoster(eventsData.roster);  // Preferred: uses inferred roles
+    return;
+}
+// Fallback: build from physics frames (no roles)
+```
+

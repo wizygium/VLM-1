@@ -395,6 +395,25 @@ select {
     border-left-color: #dc3545;
 }
 
+.event-card.turnover {
+    border-left-color: #fd7e14;
+}
+
+.event-card.move {
+    border-left-color: #17a2b8;
+}
+
+/* Player Team Colors */
+.player-card.attack {
+    border-color: #17a2b8;
+    background: linear-gradient(to bottom, #e3fafc, white);
+}
+
+.player-card.defense {
+    border-color: #e74c3c;
+    background: linear-gradient(to bottom, #ffe3e3, white);
+}
+
 .event-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);

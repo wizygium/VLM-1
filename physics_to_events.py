@@ -1,222 +1,245 @@
 #!/usr/bin/env python3
 """
-Derive PASS/SHOT events from physics-only JSON output.
+Stage 2: Physics to Events Transformer
 
-Reads physics JSON (track IDs, zones, ball states) and infers events using
-simple state machine rules. No VLM hallucination - pure programmatic logic.
+Converts raw physics observations (*_physics.json) to enriched events (*_events.json)
+by inferring player roles and deriving events programmatically.
+
+Usage:
+    python physics_to_events.py input_physics.json -o output_events.json
 """
 
 import json
 from pathlib import Path
-from typing import Optional
+from datetime import datetime
+from typing import Dict, List, Any, Optional
+
 import click
 
+from inference import (
+    assign_attack_roles,
+    assign_defense_roles,
+    PlayerPosition,
+    EventDetector,
+)
 
-def detect_events(physics_frames: list) -> list:
-    """Derive PASS/SHOT events from physics facts using track IDs.
 
-    Args:
-        physics_frames: List of frame dictionaries from physics JSON
+def parse_physics_json(path: Path) -> Dict[str, Any]:
+    """Load and validate physics JSON file."""
+    with open(path, 'r') as f:
+        data = json.load(f)
+    
+    if "frames" not in data:
+        raise ValueError("Invalid physics JSON: missing 'frames' key")
+    
+    return data
 
-    Returns:
-        List of event dictionaries with type, time, participants, zones
+
+def normalize_zone(zone: Any) -> int:
+    """Convert zone to integer format."""
+    if isinstance(zone, int):
+        return zone
+    if isinstance(zone, str):
+        return int(zone.replace("z", ""))
+    return 0
+
+
+def build_roster(frames: List[Dict]) -> Dict[str, List[Dict]]:
     """
-    events = []
-
-    for i in range(1, len(physics_frames)):
-        prev = physics_frames[i - 1]
-        curr = physics_frames[i]
-
-        prev_ball = prev.get("ball", {})
-        curr_ball = curr.get("ball", {})
-
-        # PASS detection: holder track_id changed + ball was in-air
-        prev_holder = prev_ball.get("holder_track_id")
-        curr_holder = curr_ball.get("holder_track_id")
-
-        if prev_holder != curr_holder and prev_ball.get("state") == "In-Air":
-            # Get jersey numbers for enrichment (optional)
-            from_jersey = _get_jersey(prev.get("players", []), prev_holder)
-            to_jersey = _get_jersey(curr.get("players", []), curr_holder)
-
-            events.append(
-                {
-                    "type": "PASS",
-                    "time": prev.get("timestamp"),
-                    "from_track_id": prev_holder,
-                    "to_track_id": curr_holder,
-                    "from_jersey": from_jersey,  # May be null
-                    "to_jersey": to_jersey,  # May be null
-                    "from_zone": prev_ball.get("zone"),
-                    "to_zone": curr_ball.get("zone"),
-                }
-            )
-
-        # SHOT detection: ball entered z0 (goal) + in-air
-        if (
-            prev_ball.get("zone") != "z0"
-            and curr_ball.get("zone") == "z0"
-            and curr_ball.get("state") == "In-Air"
-        ):
-            shooter_jersey = _get_jersey(prev.get("players", []), prev_holder)
-
-            events.append(
-                {
-                    "type": "SHOT",
-                    "time": curr.get("timestamp"),
-                    "shooter_track_id": prev_holder,
-                    "shooter_jersey": shooter_jersey,  # May be null
-                    "from_zone": prev_ball.get("zone"),
-                    "target_zone": "z0",
-                }
-            )
-
-    return events
-
-
-def _get_jersey(players: list, track_id: Optional[str]) -> Optional[str]:
-    """Helper: Get jersey number for a track_id.
-
-    Args:
-        players: List of player dictionaries
-        track_id: Track ID to look up
-
-    Returns:
-        Jersey number string or None
+    Build roster from first frame by assigning roles.
     """
-    if not track_id:
-        return None
+    if not frames:
+        return {"attack": [], "defense": []}
+    
+    first_frame = frames[0]
+    players = first_frame.get("players", [])
+    
+    # Separate by team
+    attackers = [
+        PlayerPosition(
+            track_id=p["track_id"],
+            zone=normalize_zone(p.get("zone", 0)),
+            jersey_number=p.get("jersey_number")
+        )
+        for p in players
+        if p.get("team") in ["attack", "blue"]
+    ]
+    
+    defenders = [
+        PlayerPosition(
+            track_id=p["track_id"],
+            zone=normalize_zone(p.get("zone", 0)),
+            jersey_number=p.get("jersey_number")
+        )
+        for p in players
+        if p.get("team") in ["defense", "white"]
+    ]
+    
+    # Assign roles
+    attack_roles = assign_attack_roles(attackers)
+    defense_roles = assign_defense_roles(defenders)
+    
+    roster = {
+        "attack": [
+            {
+                "track_id": p.track_id,
+                "role": attack_roles.get(p.track_id, "UNK"),
+                "jersey_number": p.jersey_number
+            }
+            for p in attackers
+        ],
+        "defense": [
+            {
+                "track_id": p.track_id,
+                "role": defense_roles.get(p.track_id, "UNK"),
+                "jersey_number": p.jersey_number
+            }
+            for p in defenders
+        ]
+    }
+    
+    return roster
 
-    for p in players:
-        if p.get("track_id") == track_id:
-            return p.get("jersey_number")
+
+def get_all_roles(roster: Dict) -> Dict[str, str]:
+    """Flatten roster to track_id -> role mapping."""
+    roles = {}
+    for team in roster.values():
+        for player in team:
+            roles[player["track_id"]] = player["role"]
+    return roles
+
+
+def enrich_frame_with_roles(frame: Dict, roles: Dict[str, str]) -> Dict:
+    """Add role to each player in frame."""
+    enriched = dict(frame)
+    enriched["players"] = [
+        {**p, "role": roles.get(p["track_id"], "UNK")}
+        for p in frame.get("players", [])
+    ]
+    return enriched
+
+
+def create_original_event(events: List[Dict], timestamp: float) -> Optional[Dict]:
+    """Create backwards-compatible original_event field."""
+    for event in events:
+        if event.get("start_time", 0) <= timestamp <= event.get("end_time", float('inf')):
+            return {
+                "type": event.get("type", ""),
+                "from_role": event.get("from_role") or event.get("role"),
+                "from_zone": event.get("from_zone"),
+                "to_role": event.get("to_role"),
+                "to_zone": event.get("to_zone"),
+                "description": f"{event.get('type', '')} event"
+            }
     return None
 
 
-def analyze_physics(data: dict) -> dict:
-    """Analyze physics JSON and extract statistics.
-
-    Args:
-        data: Physics JSON with metadata and frames
-
-    Returns:
-        Statistics dictionary
-    """
-    frames = data.get("frames", [])
-    if not frames:
-        return {"error": "No frames found"}
-
-    # Track unique players and jerseys
-    track_ids = set()
-    jerseys = set()
-    ball_states = {"Holding": 0, "Dribbling": 0, "In-Air": 0, "Loose": 0}
-
+def transform_physics_to_events(physics_data: Dict, source_path: Path) -> Dict:
+    """Main transformation: physics -> events."""
+    
+    frames = physics_data.get("frames", [])
+    metadata = physics_data.get("metadata", {})
+    
+    # Build roster from first frame
+    roster = build_roster(frames)
+    all_roles = get_all_roles(roster)
+    
+    # Collect attacker/defender IDs for turnover detection
+    attacker_ids = {p["track_id"] for p in roster.get("attack", [])}
+    defender_ids = {p["track_id"] for p in roster.get("defense", [])}
+    
+    # Detect events across all frames
+    detector = EventDetector(all_roles, attacker_ids=attacker_ids, defender_ids=defender_ids)
+    all_events = []
+    
+    for i in range(len(frames) - 1):
+        is_last = (i == len(frames) - 2)
+        frame_events = detector.detect_all_events(frames[i], frames[i + 1], is_last_frame=is_last)
+        all_events.extend(frame_events)
+    
+    events_list = [e.to_dict() for e in all_events]
+    
+    # Build event index for active_event_ids
+    def get_active_events(timestamp: float) -> List[int]:
+        return [
+            e["event_id"] for e in events_list
+            if e["start_time"] <= timestamp <= e["end_time"]
+        ]
+    
+    # Enrich frames
+    enriched_frames = []
     for frame in frames:
-        # Ball states
-        ball_state = frame.get("ball", {}).get("state")
-        if ball_state in ball_states:
-            ball_states[ball_state] += 1
-
-        # Players
-        for player in frame.get("players", []):
-            tid = player.get("track_id")
-            if tid:
-                track_ids.add(tid)
-            jersey = player.get("jersey_number")
-            if jersey:
-                jerseys.add(jersey)
-
+        enriched = enrich_frame_with_roles(frame, all_roles)
+        ts = frame.get("timestamp", 0)
+        enriched["active_event_ids"] = get_active_events(ts)
+        
+        original = create_original_event(events_list, ts)
+        if original:
+            enriched["original_event"] = original
+        
+        enriched_frames.append(enriched)
+    
     return {
-        "total_frames": len(frames),
-        "duration_seconds": len(frames) * 0.0625 if len(frames) > 0 else 0,
-        "unique_track_ids": len(track_ids),
-        "unique_jerseys": len(jerseys),
-        "ball_states": ball_states,
+        "metadata": {
+            "video": metadata.get("video", physics_data.get("video", "")),
+            "source_physics": str(source_path),
+            "derived_at": datetime.now().isoformat(),
+            "model": metadata.get("model", ""),
+            "fps": metadata.get("fps"),
+            "total_frames": len(frames),
+            "duration_seconds": metadata.get("duration_seconds"),
+        },
+        "roster": roster,
+        "events": events_list,
+        "frames": enriched_frames,
     }
 
 
 @click.command()
 @click.argument("physics_json_path", type=click.Path(exists=True))
 @click.option("-o", "--output", help="Output events JSON file")
-@click.option("--stats", is_flag=True, help="Show statistics instead of events")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-def main(physics_json_path, output, stats, verbose):
-    """Derive events from physics JSON.
-
-    PHYSICS_JSON_PATH: Path to physics JSON file from gemini_physics_analyzer.py
-
-    Detects:
-    - PASS events: Ball holder changed + ball in-air
-    - SHOT events: Ball entered goal zone (z0) while in-air
-
-    Events include track IDs and optional jersey numbers.
-    """
-    physics_path = Path(physics_json_path)
-
-    # Load JSON
-    with open(physics_path) as f:
-        data = json.load(f)
-
-    frames = data.get("frames", [])
-    if not frames:
-        click.echo("❌ No frames found in physics JSON")
-        return
-
-    if stats:
-        # Show statistics
-        stats_data = analyze_physics(data)
-        click.echo("\n📊 Physics Statistics:")
-        click.echo(f"  Frames: {stats_data.get('total_frames')}")
-        click.echo(f"  Duration: {stats_data.get('duration_seconds'):.2f}s")
-        click.echo(f"  Unique players (track IDs): {stats_data.get('unique_track_ids')}")
-        click.echo(f"  Unique jerseys detected: {stats_data.get('unique_jerseys')}")
-        click.echo("\n  Ball states:")
-        for state, count in stats_data.get("ball_states", {}).items():
-            pct = (count / stats_data.get("total_frames", 1)) * 100
-            click.echo(f"    {state}: {count} ({pct:.1f}%)")
-    else:
-        # Detect events
-        if verbose:
-            click.echo(f"Analyzing {len(frames)} frames...")
-
-        events = detect_events(frames)
-
-        click.echo(f"\n🎯 Detected {len(events)} events:")
-        click.echo(f"  PASS: {sum(1 for e in events if e['type'] == 'PASS')}")
-        click.echo(f"  SHOT: {sum(1 for e in events if e['type'] == 'SHOT')}")
-
-        if verbose and events:
-            click.echo("\nEvent details:")
-            for i, event in enumerate(events[:10], 1):  # Show first 10
-                if event["type"] == "PASS":
-                    from_j = event.get("from_jersey") or "?"
-                    to_j = event.get("to_jersey") or "?"
-                    click.echo(
-                        f"  {i}. PASS @ {event['time']}s: "
-                        f"#{from_j} → #{to_j} "
-                        f"({event['from_zone']} → {event['to_zone']})"
-                    )
-                elif event["type"] == "SHOT":
-                    shooter_j = event.get("shooter_jersey") or "?"
-                    click.echo(
-                        f"  {i}. SHOT @ {event['time']}s: "
-                        f"#{shooter_j} from {event['from_zone']}"
-                    )
-            if len(events) > 10:
-                click.echo(f"  ... and {len(events) - 10} more")
-
-        # Save events JSON
-        if output:
-            output_path = Path(output)
-            output_data = {
-                "source_video": data.get("video"),
-                "source_physics": physics_path.name,
-                "metadata": data.get("metadata"),
-                "events": events,
-            }
-            with open(output_path, "w") as f:
-                json.dump(output_data, f, indent=2)
-            click.echo(f"\n✅ Events saved to: {output_path}")
+def main(physics_json_path: str, output: str, verbose: bool):
+    """Transform physics JSON to events JSON with role inference."""
+    
+    input_path = Path(physics_json_path)
+    
+    if not output:
+        output = str(input_path).replace("_physics.json", "_events.json")
+    output_path = Path(output)
+    
+    if verbose:
+        click.echo(f"📖 Reading: {input_path}")
+    
+    physics_data = parse_physics_json(input_path)
+    
+    if verbose:
+        click.echo(f"🔄 Transforming {len(physics_data.get('frames', []))} frames...")
+    
+    events_data = transform_physics_to_events(physics_data, input_path)
+    
+    with open(output_path, 'w') as f:
+        json.dump(events_data, f, indent=2)
+    
+    # Summary
+    n_attack = len(events_data['roster']['attack'])
+    n_defense = len(events_data['roster']['defense'])
+    n_events = len(events_data['events'])
+    
+    click.echo(f"\n✅ Output: {output_path}")
+    click.echo(f"   Roster: {n_attack} attackers, {n_defense} defenders")
+    click.echo(f"   Events: {n_events} detected")
+    
+    if verbose and events_data['events']:
+        click.echo("\n📋 Events:")
+        for e in events_data['events'][:10]:
+            if e['type'] == 'PASS':
+                click.echo(f"   PASS: {e.get('from_role')} → {e.get('to_role')} @ {e['start_time']:.1f}s")
+            elif e['type'] == 'SHOT':
+                click.echo(f"   SHOT: {e.get('from_role')} from z{e.get('from_zone')} → {e.get('outcome')}")
+            elif e['type'] == 'MOVE':
+                click.echo(f"   MOVE: {e.get('role')} z{e.get('from_zone')} → z{e.get('to_zone')}")
 
 
 if __name__ == "__main__":

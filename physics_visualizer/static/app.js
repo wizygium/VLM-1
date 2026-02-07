@@ -389,8 +389,9 @@ function displayEvents() {
         eventsData.events.forEach(e => {
             allEvents.push({
                 ...e,
-                startTime: e.time,
-                endTime: e.time
+                time: e.start_time || e.time,
+                startTime: e.start_time || e.time,
+                endTime: e.end_time || e.time
             });
         });
     }
@@ -453,10 +454,16 @@ function displayEvents() {
             const to = event.to_jersey || event.to_role || '?';
             details.innerHTML = `<strong>#${from}→#${to}</strong><br>${event.from_zone}→${event.to_zone}`;
         } else if (typeStr === 'SHOT') {
-            const shooter = event.shooter_jersey || event.shooter_role || '?';
-            details.innerHTML = `<strong>Shot: #${shooter}</strong><br>${event.from_zone}`;
+            const shooter = event.shooter_jersey || event.shooter_role || event.from_role || '?';
+            const outcome = event.outcome || '';
+            details.innerHTML = `<strong>Shot: #${shooter}</strong><br>${event.from_zone}${outcome ? ' → ' + outcome : ''}`;
+        } else if (typeStr === 'TURNOVER') {
+            const subtype = event.turnover_type || '';
+            const role = event.from_role || event.to_role || '';
+            details.innerHTML = `<strong>${subtype}</strong>${role ? ` (${role})` : ''}<br>${event.from_zone || '?'}`;
         } else if (typeStr === 'MOVEMENT' || typeStr === 'MOVE') {
-            details.innerHTML = `<em>Mid-Air</em><br>Zone: ${event.zone || '?'}`;
+            const role = event.role || '';
+            details.innerHTML = `<em>${role || 'Player'}</em><br>${event.from_zone || event.zone || '?'}→${event.to_zone || '?'}`;
         }
 
         card.appendChild(typeLine);
@@ -469,11 +476,19 @@ function displayEvents() {
  * Display tracked players
  */
 function displayPlayers() {
+    if (attackersList) attackersList.innerHTML = '';
+    if (defendersList) defendersList.innerHTML = '';
+
+    // Priority: Use Phase 2 roster from events JSON
+    if (eventsData?.roster) {
+        renderRoster(eventsData.roster);
+        return;
+    }
+
+    // Fallback: Build roster from physics frames
     if (!physicsData) return;
 
-    // Collect all unique players
     const playersMap = new Map();
-
     (physicsData.frames || []).forEach(frame => {
         (frame.players || []).forEach(player => {
             if (!playersMap.has(player.track_id)) {
@@ -482,55 +497,82 @@ function displayPlayers() {
         });
     });
 
-    if (attackersList) attackersList.innerHTML = '';
-    if (defendersList) defendersList.innerHTML = '';
-
     if (playersMap.size === 0) {
         if (attackersList) attackersList.innerHTML = '<p class="placeholder">No players tracked</p>';
         return;
     }
 
     Array.from(playersMap.values()).forEach(player => {
-        const card = document.createElement('div');
-        card.className = `player-card ${player.team || 'unknown'}`;
-
-        // Flash Interaction
-        card.onclick = () => {
-            // Visual feedback on card
-            card.style.borderColor = '#FFF';
-            setTimeout(() => card.style.borderColor = '', 300);
-
-            // Trigger Flash on Court
-            if (courtRenderer) {
-                courtRenderer.flashPlayer(player.track_id);
-            }
-        };
-
-        const trackId = document.createElement('div');
-        trackId.className = 'player-track-id';
-        trackId.textContent = player.role || player.track_id; // Prefer Role
-
-        const jersey = document.createElement('div');
-        jersey.className = 'player-jersey';
-        jersey.textContent = `#${player.jersey_number || '?'}`;
-
-        // const team = document.createElement('div');
-        // team.className = 'player-team';
-        // team.textContent = player.team || 'unknown';
-
-        card.appendChild(trackId);
-        card.appendChild(jersey);
-        // card.appendChild(team);
-
-        // Sort into lists
-        const isDefender = player.team === 'white' || (player.role && player.role.startsWith('D'));
-
-        if (isDefender && defendersList) {
-            defendersList.appendChild(card);
-        } else if (attackersList) {
-            attackersList.appendChild(card);
-        }
+        renderPlayerCard(player);
     });
+}
+
+/**
+ * Render roster from Phase 2 events JSON
+ */
+function renderRoster(roster) {
+    // Attackers
+    (roster.attack || []).forEach(player => {
+        const card = createPlayerCard(player, 'attack');
+        if (attackersList) attackersList.appendChild(card);
+    });
+
+    // Defenders
+    (roster.defense || []).forEach(player => {
+        const card = createPlayerCard(player, 'defense');
+        if (defendersList) defendersList.appendChild(card);
+    });
+
+    if ((roster.attack?.length || 0) === 0) {
+        if (attackersList) attackersList.innerHTML = '<p class="placeholder">No attackers</p>';
+    }
+    if ((roster.defense?.length || 0) === 0) {
+        if (defendersList) defendersList.innerHTML = '<p class="placeholder">No defenders</p>';
+    }
+}
+
+/**
+ * Create a player card element
+ */
+function createPlayerCard(player, team) {
+    const card = document.createElement('div');
+    card.className = `player-card ${team}`;
+
+    // Flash Interaction
+    card.onclick = () => {
+        card.style.borderColor = '#FFF';
+        setTimeout(() => card.style.borderColor = '', 300);
+        if (courtRenderer) {
+            courtRenderer.flashPlayer(player.track_id);
+        }
+    };
+
+    const role = document.createElement('div');
+    role.className = 'player-track-id';
+    role.textContent = player.role || player.track_id;
+
+    const jersey = document.createElement('div');
+    jersey.className = 'player-jersey';
+    jersey.textContent = `#${player.jersey_number || '?'}`;
+
+    card.appendChild(role);
+    card.appendChild(jersey);
+
+    return card;
+}
+
+/**
+ * Render player card (legacy fallback)
+ */
+function renderPlayerCard(player) {
+    const card = createPlayerCard(player, player.team || 'unknown');
+    const isDefender = player.team === 'white' || (player.role && player.role.startsWith('D'));
+
+    if (isDefender && defendersList) {
+        defendersList.appendChild(card);
+    } else if (attackersList) {
+        attackersList.appendChild(card);
+    }
 }
 
 /**
