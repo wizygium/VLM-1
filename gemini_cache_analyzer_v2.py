@@ -315,7 +315,28 @@ class GeminiCacheAnalyzer:
             if "json" in step_key:
                 try:
                     text = response.text.replace("```json", "").replace("```", "").strip()
-                    final_json = json.loads(text)
+                    parsed_json = json.loads(text)
+                    
+                    # Robust Extraction: Handle wrapped responses
+                    if isinstance(parsed_json, dict):
+                        if "frames" in parsed_json:
+                            final_json = parsed_json["frames"]
+                        elif "analysis" in parsed_json:
+                            final_json = parsed_json["analysis"]
+                        else:
+                             # Fallback: assume the dict is a single frame or unknown structure
+                             # Best effort: if it has 'timestamp', wrap it in list
+                             if "timestamp" in parsed_json:
+                                 final_json = [parsed_json]
+                             else:
+                                 print(f"    ⚠️ Warning: Unknown JSON structure keys: {parsed_json.keys()}")
+                                 final_json = parsed_json
+                    elif isinstance(parsed_json, list):
+                        final_json = parsed_json
+                    else:
+                        print(f"    ⚠️ Warning: Parsed JSON is not list or dict: {type(parsed_json)}")
+                        final_json = parsed_json
+
                 except Exception as e:
                     print(f"    ⚠️ JSON Parse Error: {e}")
 
@@ -330,13 +351,23 @@ class GeminiCacheAnalyzer:
         
         # Save Physics JSON
         if final_json:
+            # Enforce Schema from json_format.md
             json_path = output_dir / f"{video_path.stem}_physics.json"
+            
+            # Ensure final_json is a list
+            frames_list = final_json if isinstance(final_json, list) else [final_json]
+            
             wrapper = {
-                "video_file": video_path.name,
-                "model": self.model_name,
-                "fps": FPS,
-                "frames": final_json if isinstance(final_json, list) else [final_json]
+                "metadata": {
+                    "video": video_path.name,
+                    "model": self.model_name,
+                    "fps": FPS,
+                    "total_frames": len(frames_list),
+                    "duration_seconds": len(frames_list) * (1.0/FPS)
+                },
+                "frames": frames_list
             }
+            
             with open(json_path, "w") as f:
                 json.dump(wrapper, f, indent=2)
             print(f"  ✅ Physics JSON saved: {json_path.name}")
