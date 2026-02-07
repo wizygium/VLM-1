@@ -37,45 +37,32 @@ Use the dropdown to select from available physics analyses in `results_physics/`
 
 ## Interface Overview
 
-### Video Panel (Left)
-- **Video Player**: Streams from S3 via presigned URLs
-- **Playback Controls**: Play/pause, frame navigation, speed control
+### Compact "Cockpit" Layout
+The visualizer now features a unified, single-screen dark theme layout designed for efficient analysis without scrolling.
+
+### Top Bar
+- **Analysis Selector**: Quickly switch between processed videos.
+- **Metadata**: Shows total duration, frame count, and unique players.
+
+### Main Stage (Side-by-Side)
+- **Video Player**: Connected directly to S3.
+- **Court Visualization**: 
+  - **49-Zone Grid**: Interactive overlay.
+  - **Player Markers**: Blue/White circles with jersey numbers.
+  - **Ball State**: Gold indicator for loose/held ball.
+  - **Flash Highlights**: Players flash when selecting them in the roster.
+- **Info Panel (Tabs)**:
+  - **Events**: Scrollable list of game events (Pass, Shot, Move). Click to jump. **Active events are highlighted.**
+  - **Players**: Roster list (Attackers/Defenders).
+  - **Stats**: (Placeholder for future stats).
+
+### Controls Bar (Bottom)
+- **Playback**: Play/Pause, Frame Step (←/→), Speed Control (0.5x - 2.0x).
+- **Timeline**: Visual scrubber synced to video and analytics.
 - **Keyboard Shortcuts**:
   - `Space`: Play/Pause
-  - `←`: Previous frame
-  - `→`: Next frame
-
-### Court Visualization (Right)
-- **49-Zone Grid**: Shows all zones (z0 goal + z1_1 through z6_8)
-- **Player Markers**: Colored circles with jersey numbers
-  - Blue circle = Blue team
-  - White circle (gray border) = White team
-  - Red border = Ball holder
-- **Ball Indicator**: Gold circle when ball is loose/in-air
-- **Zone Labels**: Sample zone identifiers for reference
-
-### Timeline Scrubber
-- Drag slider to navigate to specific frames
-- Click events to jump to event timestamps
-- Shows current time, total duration
-
-### Events Panel
-- **PASS Events**: Green cards showing pass details
-  - From → To roles (CB → LB, etc.)
-  - Zone movements
-- **SHOT Events**: Red cards showing shot details
-  - Shooter role/jersey
-  - Origin zone
-- **TURNOVER Events**: Orange cards showing possession loss
-- **MOVE Events**: Blue cards showing significant tactical movement
-- Click any event card to jump to that moment
-
-### Players Panel
-- Lists all tracked players with:
-  - **Inferred Role** (LB, CB, PV, DL1...)
-  - Track ID (t1, t2...)
-  - Jersey number (#25, #12...)
-  - Team color
+  - `←` / `→`: Frame stepping
+  - `T`: Toggle Zone Test Mode
 
 ## How It Works
 

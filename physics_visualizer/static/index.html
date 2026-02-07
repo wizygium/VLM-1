@@ -9,121 +9,112 @@
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>🤾 Handball Physics Visualizer</h1>
-            <p class="subtitle">Real-time physics tracking visualization</p>
+    <div class="app-container">
+        <!-- Top Bar: Header & Selector -->
+        <header class="top-bar">
+            <div class="logo">
+                <h1>🤾 VLM-1 Visualizer</h1>
+            </div>
+            <div class="selector-group">
+                <select id="analysis-select">
+                    <option value="">Loading analyses...</option>
+                </select>
+                <div id="analysis-info" class="analysis-info hidden">
+                    <span id="info-frames">0f</span> • <span id="info-duration">0s</span>
+                    <!-- Hidden elements preserved for JS compatibility if needed -->
+                    <span id="info-players" style="display:none"></span>
+                </div>
+            </div>
         </header>
 
-        <!-- Analysis Selector -->
-        <div class="selector-panel">
-            <label for="analysis-select">Select Analysis:</label>
-            <select id="analysis-select">
-                <option value="">Loading...</option>
-            </select>
-            <div id="analysis-info" class="analysis-info hidden">
-                <span id="info-frames">0 frames</span> •
-                <span id="info-duration">0.0s</span> •
-                <span id="info-players">0 players</span>
-            </div>
-        </div>
-
-        <!-- Main Content: Side-by-Side View -->
-        <div class="sim-container">
-            <!-- Video Panel -->
+        <!-- Main Stage: Video & Court -->
+        <main class="main-stage">
+            <!-- Left: Video Panel -->
             <div class="panel video-panel">
-                <h2>Video Source</h2>
-                <div class="video-wrapper">
-                    <video id="video-player" controls></video>
-                    <div id="video-loading" class="loading-overlay">
+                <div class="video-container">
+                    <video id="video-player" playsinline></video>
+                    <div id="video-loading" class="loading-overlay hidden">
                         <div class="spinner"></div>
-                        <p>Loading video...</p>
                     </div>
                     <div id="video-error" class="error-overlay hidden">
-                        <p>⚠️ Failed to load video</p>
+                        <p>⚠️ Video Error</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Court Panel -->
+            <!-- Right: Court Panel -->
             <div class="panel court-panel">
-                <h2>Simulation View</h2>
-                <div class="court-wrapper">
-                    <canvas id="court-canvas" width="600" height="600"></canvas>
+                <div class="court-container">
+                    <canvas id="court-canvas" width="640" height="360"></canvas>
                 </div>
-                <!-- Zone Legend (Inline) -->
-                <div id="zone-legend" class="zone-legend hidden">
-                    <div class="zone-grid-mini">
-                        <span>z0:GA</span> <span>z1:LW</span> <span>z2:LP</span> <span>z3:RW</span>
-                    </div>
+                <div id="zone-legend" class="zone-legend-overlay hidden">
+                    <!-- Dynamic content -->
                 </div>
             </div>
-        </div>
 
-        <!-- Shared Controls Dashboard -->
-        <div class="dashboard-panel">
-            <div class="controls-main">
-                <button id="play-pause-btn" class="ctrl-btn primary" disabled>▶️ Play</button>
-                <button id="prev-frame-btn" class="ctrl-btn" disabled>⏮ Prev</button>
-                <div class="scrubber-container">
-                    <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="1" disabled>
-                    <div class="time-display">
-                        <span id="current-time">0.00s</span> / <span id="info-duration">0.0s</span>
-                    </div>
+            <!-- Side: Events / Info (Collapsible) -->
+            <div class="panel info-panel">
+                <div class="info-tabs">
+                    <button class="tab-btn active" data-tab="events">Events</button>
                 </div>
-                <button id="next-frame-btn" class="ctrl-btn" disabled>Next ⏭</button>
-            </div>
-
-            <div class="controls-secondary">
-                <label>Speed:
-                    <select id="playback-speed">
-                        <option value="0.25">0.25x</option>
-                        <option value="0.5">0.5x</option>
-                        <option value="1" selected>1x</option>
-                        <option value="2">2x</option>
-                    </select>
-                </label>
-            </div>
-        </div>
-
-
-        <!-- Events Panel -->
-        <div class="events-panel">
-            <h3>Detected Events</h3>
-            <div id="events-list" class="events-list">
-                <p class="placeholder">No events detected</p>
-            </div>
-            <!-- Tracked Players -->
-            <div class="panel-section">
-                <h3>Tracked Players</h3>
-
-                <div class="team-section">
-                    <h4>Attackers (Blue)</h4>
-                    <div id="attackers-list" class="players-grid">
-                        <!-- Populated by JS -->
-                    </div>
+                <!-- Events List -->
+                <div id="events-list" class="scrollable-list">
+                    <div class="placeholder">Waiting for analysis...</div>
                 </div>
 
-                <div class="team-section">
-                    <h4>Defenders (White)</h4>
-                    <div id="defenders-list" class="players-grid">
-                        <!-- Populated by JS -->
-                    </div>
+                <!-- Hidden Tracked Players for JS compatibility -->
+                <div id="players-list" class="players-list hidden" style="display:none">
+                    <ul id="attackers-list"></ul>
+                    <ul id="defenders-list"></ul>
                 </div>
             </div>
-        </div>
+        </main>
 
-        <!-- System Log Panel -->
-        <div class="log-panel">
-            <h3>System Log</h3>
-            <div id="message-log" class="message-buffer">
-                <div class="log-entry system">System initialized...</div>
+        <!-- Bottom Bar: Controls -->
+        <footer class="controls-bar">
+            <div class="playback-controls">
+                <button id="prev-frame-btn" class="icon-btn" title="Previous Frame">⏮</button>
+                <button id="play-pause-btn" class="icon-btn primary" title="Play/Pause">▶️</button>
+                <button id="next-frame-btn" class="icon-btn" title="Next Frame">⏭</button>
             </div>
-        </div>
+
+            <div class="timeline-group">
+                <span id="current-time">0.00s</span>
+                <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="0.1">
+                <span id="info-duration-display">0.00s</span>
+            </div>
+
+            <div class="settings-group">
+                <select id="playback-speed" class="speed-select">
+                    <option value="0.25">0.25x</option>
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1.0x</option>
+                    <option value="2">2.0x</option>
+                </select>
+            </div>
+        </footer>
     </div>
 
+    <!-- Scripts -->
     <script src="/static/court-renderer.js"></script>
     <script src="/static/app.js"></script>
+    <script>
+        // Polyfill for info-duration duplication if app.js targets it by ID
+        // app.js likely uses `getElementById('info-duration')`. 
+        // We have `info-duration` in the top bar. `info-duration-display` is in the bottom bar.
+        // We can sync them if needed, but app.js only writes to one. 
+        // Let's ensure the JS writes to the top one and we mirror it or CSS handles it.
+        const originalDuration = document.getElementById('info-duration');
+        const displayDuration = document.getElementById('info-duration-display');
+
+        // Simple observer to copy text content if needed
+        if (originalDuration && displayDuration) {
+            const observer = new MutationObserver(() => {
+                displayDuration.textContent = originalDuration.textContent;
+            });
+            observer.observe(originalDuration, { childList: true, characterData: true, subtree: true });
+        }
+    </script>
 </body>
 
 </html>
