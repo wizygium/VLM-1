@@ -219,6 +219,142 @@ canvas {
     border-left-color: #60a5fa;
 }
 
+/* --- Timeline Filters --- */
+.timeline-filters {
+    display: flex;
+    gap: 2px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.filter-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: #2a2a2a;
+}
+
+.filter-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+}
+
+/* --- Physics Frame Cards --- */
+.frame-card {
+    padding: 5px 10px;
+    border-bottom: 1px solid rgba(51, 51, 51, 0.5);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 0.78rem;
+}
+
+.frame-card:hover {
+    background-color: #2a2a2a;
+}
+
+.frame-card.static {
+    opacity: 0.45;
+    border-left-color: #333;
+}
+
+.frame-card.transition {
+    border-left-color: #c084fc;
+    opacity: 1;
+    padding: 7px 10px;
+}
+
+.frame-card.active {
+    background-color: rgba(102, 126, 234, 0.2);
+    border-left-color: var(--accent);
+    opacity: 1;
+}
+
+.frame-card.active.transition {
+    border-left-color: var(--accent);
+}
+
+.frame-time {
+    font-family: 'SF Mono', 'Menlo', monospace;
+    color: var(--text-muted);
+    min-width: 48px;
+    font-size: 0.72rem;
+}
+
+.frame-ball {
+    color: var(--text-main);
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 0.75rem;
+}
+
+.frame-transitions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+.transition-chip {
+    font-size: 0.68rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: rgba(192, 132, 252, 0.2);
+    color: #c084fc;
+    white-space: nowrap;
+}
+
+.transition-chip.catch {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+.transition-chip.release {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+.transition-chip.transfer {
+    background: rgba(96, 165, 250, 0.2);
+    color: #60a5fa;
+}
+
+.transition-chip.zone {
+    background: rgba(250, 204, 21, 0.15);
+    color: #facc15;
+}
+
+.transition-chip.state {
+    background: rgba(192, 132, 252, 0.2);
+    color: #c084fc;
+}
+
+.transition-chip.start {
+    background: rgba(102, 126, 234, 0.2);
+    color: var(--accent);
+}
+
+/* Inferred event cards in unified timeline get a subtle left indent to show hierarchy */
+.event-card.inferred {
+    margin-left: 8px;
+    border-left-width: 3px;
+}
+
 .event-header {
     display: flex;
     justify-content: space-between;

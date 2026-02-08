@@ -9,6 +9,7 @@ let currentFrameIndex = 0;
 let courtRenderer = null;
 let videoSyncEnabled = true;
 let zoneTestMode = false;
+let timelineFilter = 'all'; // 'all', 'changes', 'events'
 
 // DOM Elements
 const analysisSelect = document.getElementById('analysis-select');
@@ -347,27 +348,17 @@ function renderCurrentFrame() {
 }
 
 /**
- * Update highlighting for active event card and auto-scroll it into view
+ * Update highlighting for active event/frame card and auto-scroll it into view
  */
 function updateActiveEvent(timestamp) {
     const time = parseFloat(timestamp);
-    const cards = document.querySelectorAll('.event-card');
     let activeCard = null;
 
-    cards.forEach(card => {
-        const start = parseFloat(card.dataset.startTime);
-        const end = parseFloat(card.dataset.endTime);
-
-        let isActive = false;
-        if (start === end) {
-            // Instantaneous event (PASS/SHOT) - Use small buffer
-            isActive = Math.abs(start - time) < 0.15;
-        } else {
-            // Duration event (MOVE) - Check range
-            isActive = (time >= start && time <= end);
-        }
-
-        if (isActive) {
+    // 1. Highlight matching physics frame card (exact frame index match)
+    const frameCards = document.querySelectorAll('.frame-card');
+    frameCards.forEach(card => {
+        const frameIdx = parseInt(card.dataset.frameIndex);
+        if (frameIdx === currentFrameIndex) {
             card.classList.add('active');
             activeCard = card;
         } else {
@@ -375,12 +366,32 @@ function updateActiveEvent(timestamp) {
         }
     });
 
-    // Auto-scroll the active event into view within the scrollable list
+    // 2. Highlight matching inferred event cards (time range match)
+    const eventCards = document.querySelectorAll('.event-card');
+    eventCards.forEach(card => {
+        const start = parseFloat(card.dataset.startTime);
+        const end = parseFloat(card.dataset.endTime);
+
+        let isActive = false;
+        if (start === end) {
+            isActive = Math.abs(start - time) < 0.15;
+        } else {
+            isActive = (time >= start && time <= end);
+        }
+
+        if (isActive) {
+            card.classList.add('active');
+            if (!activeCard) activeCard = card; // Prefer frame card for scroll target
+        } else {
+            card.classList.remove('active');
+        }
+    });
+
+    // Auto-scroll the active card into view within the scrollable list
     if (activeCard && eventsList) {
+        // Only scroll if card is not visible
         const listRect = eventsList.getBoundingClientRect();
         const cardRect = activeCard.getBoundingClientRect();
-
-        // Only scroll if the card is outside the visible area
         if (cardRect.top < listRect.top || cardRect.bottom > listRect.bottom) {
             activeCard.scrollIntoView({ block: 'center', behavior: 'smooth' });
         }
@@ -388,102 +399,230 @@ function updateActiveEvent(timestamp) {
 }
 
 /**
- * Display events list
+ * Detect state transitions between consecutive physics frames
+ */
+function detectTransitions(prevFrame, currentFrame) {
+    if (!prevFrame) return [{ type: 'start', label: 'Start' }];
+
+    const transitions = [];
+    const prevBall = prevFrame.ball || {};
+    const currBall = currentFrame.ball || {};
+
+    // Holder changed
+    if (prevBall.holder_track_id !== currBall.holder_track_id) {
+        if (currBall.holder_track_id && !prevBall.holder_track_id) {
+            transitions.push({ type: 'catch', label: `${currBall.holder_track_id} caught` });
+        } else if (!currBall.holder_track_id && prevBall.holder_track_id) {
+            transitions.push({ type: 'release', label: `${prevBall.holder_track_id} released` });
+        } else {
+            transitions.push({ type: 'transfer', label: `${prevBall.holder_track_id} → ${currBall.holder_track_id}` });
+        }
+    }
+
+    // State changed
+    if (prevBall.state !== currBall.state) {
+        transitions.push({ type: 'state', label: `${prevBall.state} → ${currBall.state}` });
+    }
+
+    // Zone changed
+    if (prevBall.zone !== currBall.zone) {
+        transitions.push({ type: 'zone', label: `${prevBall.zone} → ${currBall.zone}` });
+    }
+
+    return transitions;
+}
+
+/**
+ * Create a physics frame card element
+ */
+function createFrameCard(entry) {
+    const card = document.createElement('div');
+    const frame = entry.frame;
+    const ball = frame.ball || {};
+    const isTransition = !entry.isStatic;
+
+    card.className = `frame-card${isTransition ? ' transition' : ' static'}`;
+    card.dataset.frameIndex = entry.frameIndex;
+    card.dataset.time = entry.time;
+    card.dataset.startTime = entry.time;
+    card.dataset.endTime = entry.time;
+    card.onclick = () => {
+        currentFrameIndex = entry.frameIndex;
+        renderCurrentFrame();
+    };
+
+    // Timestamp
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'frame-time';
+    timeSpan.textContent = `${entry.time.toFixed(3)}s`;
+
+    // Ball state summary
+    const ballSpan = document.createElement('span');
+    ballSpan.className = 'frame-ball';
+    const holder = ball.holder_track_id || '\u2014'; // em-dash
+    const stateIcon = ball.state === 'In-Air' ? '\u2197' : ball.state === 'Holding' ? '\u270B' : '\u25CB'; // arrows/hand/circle
+    ballSpan.textContent = `${stateIcon} ${ball.state || '?'} | ${holder} | ${ball.zone || '?'}`;
+
+    card.appendChild(timeSpan);
+    card.appendChild(ballSpan);
+
+    // Transition details (for non-static frames)
+    if (isTransition && entry.transitions.length > 0) {
+        const transDiv = document.createElement('div');
+        transDiv.className = 'frame-transitions';
+        entry.transitions.forEach(t => {
+            const chip = document.createElement('span');
+            chip.className = `transition-chip ${t.type}`;
+            chip.textContent = t.label;
+            transDiv.appendChild(chip);
+        });
+        card.appendChild(transDiv);
+    }
+
+    return card;
+}
+
+/**
+ * Create an inferred event card element (PASS, SHOT, MOVE, TURNOVER)
+ */
+function createInferredEventCard(event) {
+    const card = document.createElement('div');
+    const typeStr = (event.type || 'UNKNOWN').toUpperCase();
+    card.className = `event-card inferred ${typeStr.toLowerCase()}`;
+    card.dataset.time = event.time;
+    card.dataset.startTime = event.startTime;
+    card.dataset.endTime = event.endTime;
+    card.dataset.type = typeStr;
+    card.onclick = () => seekToEvent(event);
+
+    const typeLine = document.createElement('div');
+    typeLine.className = 'event-type';
+    const displayType = typeStr === 'MOVEMENT' ? 'MOVE' : typeStr;
+    typeLine.textContent = `${displayType} @ ${parseFloat(event.time).toFixed(1)}s`;
+
+    const details = document.createElement('div');
+    details.className = 'event-details';
+
+    if (typeStr === 'PASS') {
+        const from = event.from_jersey || event.from_role || '?';
+        const to = event.to_jersey || event.to_role || '?';
+        details.innerHTML = `<strong>#${from}\u2192#${to}</strong><br>${event.from_zone || '?'}\u2192${event.to_zone || '?'}`;
+    } else if (typeStr === 'SHOT') {
+        const shooter = event.shooter_jersey || event.shooter_role || event.from_role || '?';
+        const outcome = event.outcome || '';
+        details.innerHTML = `<strong>Shot: #${shooter}</strong><br>${event.from_zone || '?'}${outcome ? ' \u2192 ' + outcome : ''}`;
+    } else if (typeStr === 'TURNOVER') {
+        const subtype = event.turnover_type || '';
+        const role = event.from_role || event.to_role || '';
+        details.innerHTML = `<strong>${subtype}</strong>${role ? ` (${role})` : ''}<br>${event.from_zone || '?'}`;
+    } else if (typeStr === 'MOVEMENT' || typeStr === 'MOVE') {
+        const role = event.role || '';
+        details.innerHTML = `<em>${role || 'Player'}</em><br>${event.from_zone || event.zone || '?'}\u2192${event.to_zone || '?'}`;
+    }
+
+    card.appendChild(typeLine);
+    card.appendChild(details);
+    return card;
+}
+
+/**
+ * Apply the current timeline filter to show/hide cards
+ */
+function applyTimelineFilter() {
+    const frameCards = document.querySelectorAll('.frame-card');
+    const eventCards = document.querySelectorAll('.event-card');
+
+    frameCards.forEach(card => {
+        if (timelineFilter === 'events') {
+            card.style.display = 'none';
+        } else if (timelineFilter === 'changes') {
+            card.style.display = card.classList.contains('static') ? 'none' : '';
+        } else {
+            card.style.display = '';
+        }
+    });
+
+    eventCards.forEach(card => {
+        card.style.display = '';
+    });
+}
+
+/**
+ * Display unified timeline: physics frames + inferred events
  */
 function displayEvents() {
-    if (!eventsData && !physicsData) {
+    if (!physicsData && !eventsData) {
         eventsList.innerHTML = '<p class="placeholder">No data available</p>';
         return;
     }
 
-    const allEvents = [];
+    const frames = (physicsData && physicsData.frames) || [];
+    const events = (eventsData && eventsData.events) || [];
 
-    // 1. Add Explicit Events (Passes, Shots)
-    if (eventsData && eventsData.events) {
-        eventsData.events.forEach(e => {
-            allEvents.push({
+    // Show/hide filter buttons based on whether we have physics frames
+    const filtersEl = document.getElementById('timeline-filters');
+    if (filtersEl) {
+        filtersEl.classList.toggle('hidden', frames.length === 0);
+    }
+
+    // Build unified timeline
+    const timeline = [];
+
+    // 1. Physics frames as backbone
+    frames.forEach((frame, index) => {
+        const prevFrame = index > 0 ? frames[index - 1] : null;
+        const transitions = detectTransitions(prevFrame, frame);
+
+        timeline.push({
+            type: 'frame',
+            time: parseFloat(frame.timestamp),
+            frameIndex: index,
+            frame: frame,
+            transitions: transitions,
+            isStatic: transitions.length === 0
+        });
+    });
+
+    // 2. Inferred events (from events JSON)
+    events.forEach(e => {
+        const eventTime = parseFloat(e.start_time || e.time);
+        timeline.push({
+            type: 'event',
+            time: eventTime,
+            event: {
                 ...e,
-                time: e.start_time || e.time,
+                time: eventTime,
                 startTime: e.start_time || e.time,
                 endTime: e.end_time || e.time
-            });
-        });
-    }
-
-    // 2. Identify 'In-Air' (Mid-Flight) Sequences from Physics Frames
-    if (physicsData && physicsData.frames) {
-        let currentSequence = null;
-
-        physicsData.frames.forEach(frame => {
-            const ball = frame.ball || {};
-            if (ball.state === 'In-Air' || ball.state === 'Air') {
-                if (!currentSequence) {
-                    currentSequence = {
-                        type: 'MOVE',
-                        time: frame.timestamp,
-                        startTime: frame.timestamp,
-                        endTime: frame.timestamp,
-                        zone: ball.zone,
-                        frames: 1
-                    };
-                } else {
-                    currentSequence.endTime = frame.timestamp;
-                    currentSequence.frames++;
-                }
-            } else {
-                if (currentSequence && currentSequence.frames >= 1) { // Captured every air frame
-                    allEvents.push(currentSequence);
-                }
-                currentSequence = null;
             }
         });
-        if (currentSequence) allEvents.push(currentSequence);
-    }
+    });
 
-    // Sort all by time
-    allEvents.sort((a, b) => parseFloat(a.time) - parseFloat(b.time));
+    // Sort by time; at same time, frames come before events
+    timeline.sort((a, b) => {
+        const timeDiff = a.time - b.time;
+        if (timeDiff !== 0) return timeDiff;
+        return a.type === 'frame' ? -1 : 1;
+    });
 
+    // Render
     eventsList.innerHTML = '';
 
-    allEvents.forEach((event, index) => {
-        const card = document.createElement('div');
-        const typeStr = (event.type || 'UNKNOWN').toUpperCase();
-        card.className = `event-card ${typeStr.toLowerCase()}`;
-        card.dataset.time = event.time;
-        card.dataset.startTime = event.startTime;
-        card.dataset.endTime = event.endTime;
-        card.dataset.type = typeStr;
-        card.onclick = () => seekToEvent(event);
+    if (timeline.length === 0) {
+        eventsList.innerHTML = '<p class="placeholder">No frames or events</p>';
+        return;
+    }
 
-        const typeLine = document.createElement('div');
-        typeLine.className = 'event-type';
-        const displayType = typeStr === 'MOVEMENT' ? 'MOVE' : typeStr;
-        typeLine.textContent = `${displayType} @ ${parseFloat(event.time).toFixed(1)}s`;
-
-        const details = document.createElement('div');
-        details.className = 'event-details';
-
-        if (typeStr === 'PASS') {
-            const from = event.from_jersey || event.from_role || '?';
-            const to = event.to_jersey || event.to_role || '?';
-            details.innerHTML = `<strong>#${from}→#${to}</strong><br>${event.from_zone}→${event.to_zone}`;
-        } else if (typeStr === 'SHOT') {
-            const shooter = event.shooter_jersey || event.shooter_role || event.from_role || '?';
-            const outcome = event.outcome || '';
-            details.innerHTML = `<strong>Shot: #${shooter}</strong><br>${event.from_zone}${outcome ? ' → ' + outcome : ''}`;
-        } else if (typeStr === 'TURNOVER') {
-            const subtype = event.turnover_type || '';
-            const role = event.from_role || event.to_role || '';
-            details.innerHTML = `<strong>${subtype}</strong>${role ? ` (${role})` : ''}<br>${event.from_zone || '?'}`;
-        } else if (typeStr === 'MOVEMENT' || typeStr === 'MOVE') {
-            const role = event.role || '';
-            details.innerHTML = `<em>${role || 'Player'}</em><br>${event.from_zone || event.zone || '?'}→${event.to_zone || '?'}`;
+    timeline.forEach(entry => {
+        if (entry.type === 'frame') {
+            eventsList.appendChild(createFrameCard(entry));
+        } else {
+            eventsList.appendChild(createInferredEventCard(entry.event));
         }
-
-        card.appendChild(typeLine);
-        card.appendChild(details);
-        eventsList.appendChild(card);
     });
+
+    // Apply current filter
+    applyTimelineFilter();
 }
 
 /**
@@ -736,6 +875,17 @@ function setupEventListeners() {
                 toggleZoneTest();
                 break;
         }
+    });
+
+    // Timeline filter buttons
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            timelineFilter = btn.dataset.filter;
+            applyTimelineFilter();
+        });
     });
 
     // Zone test button
