@@ -39,6 +39,13 @@ RESULTS_DIR = Path(__file__).parent.parent / "data" / "analyses"  # Look in data
 # Mount static files
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
+# Mount videos directory if it exists
+if VIDEO_DIR.exists():
+    app.mount("/videos", StaticFiles(directory=str(VIDEO_DIR)), name="videos")
+    print(f"DEBUG: Mounted video directory: {VIDEO_DIR}")
+else:
+    print(f"WARNING: Video directory not found: {VIDEO_DIR}")
+
 
 class AnalysisInfo(BaseModel):
     """Information about available physics analyses"""
@@ -109,7 +116,7 @@ def list_analyses():
                 "name": physics_file.stem.replace("_physics", ""),
                 "physics_file": str(physics_file),
                 "events_file": str(events_file) if events_file.exists() else None,
-                "s3_uri": data.get("video", ""),
+                "s3_uri": data.get("metadata", {}).get("video") or data.get("video", ""),
                 "total_frames": metadata.get("total_frames", len(frames)),
                 "duration": metadata.get("duration_seconds", len(frames) * 0.0625),
                 "unique_players": len(unique_players),
@@ -165,13 +172,7 @@ def get_events_data(analysis_name: str):
 
 @app.get("/api/video-url/{analysis_name}")
 def get_video_url(analysis_name: str, expires_in: int = 3600):
-    """Generate presigned S3 URL for video streaming"""
-    if not s3_client:
-        raise HTTPException(
-            status_code=500, detail="AWS S3 client not configured"
-        )
-
-    # Get S3 URI from physics file
+    """Generate video URL - tries local files first, then S3"""
     physics_file = RESULTS_DIR / f"{analysis_name}_physics.json"
 
     if not physics_file.exists():
@@ -181,44 +182,64 @@ def get_video_url(analysis_name: str, expires_in: int = 3600):
         with open(physics_file) as f:
             data = json.load(f)
 
-        s3_uri = data.get("video", "")
-        
-        # [FIX] Handle local/relative paths or non-S3 URIs
-        if not s3_uri.startswith("s3://"):
-             # Fallback 1: Check environment variable S3_BUCKET
-             fallback_bucket = os.environ.get("S3_BUCKET")
-             if fallback_bucket:
-                 # Construct valid S3 URI: s3://{bucket}/{filename}
-                 # Assuming filename is the s3_uri value
-                 print(f"DEBUG: Using fallback bucket {fallback_bucket} for {s3_uri}")
-                 s3_uri = f"s3://{fallback_bucket}/{s3_uri}"
-             else:
-                 # Fallback 2: Serve local file (if exists/configured)
-                 return {"url": f"/static/videos/{s3_uri}", "expires_in": expires_in}
+        s3_uri = data.get("metadata", {}).get("video") or data.get("video", "")
 
-        # Parse S3 URI
+        # --- Try local file first (before requiring S3) ---
+        # Extract just the filename from s3_uri or path
         if s3_uri.startswith("s3://"):
+            video_filename = s3_uri.split("/")[-1]
+        else:
+            video_filename = Path(s3_uri).name if s3_uri else ""
+
+        # Check local videos directory
+        if video_filename and (VIDEO_DIR / video_filename).exists():
+            print(f"DEBUG: Serving local video: {video_filename}")
+            return {"url": f"/videos/{video_filename}", "expires_in": expires_in}
+
+        # Also check by analysis name patterns
+        for ext in [".mp4", ".webm", ".mov"]:
+            candidate = VIDEO_DIR / f"{analysis_name}{ext}"
+            if candidate.exists():
+                print(f"DEBUG: Serving local video by name: {candidate.name}")
+                return {"url": f"/videos/{candidate.name}", "expires_in": expires_in}
+
+        # --- Try S3 ---
+        if s3_uri.startswith("s3://") and s3_client:
             parts = s3_uri[5:].split("/", 1)
             bucket = parts[0]
             key = parts[1] if len(parts) > 1 else ""
 
-            # Generate presigned URL
             try:
                 presigned_url = s3_client.generate_presigned_url(
                     "get_object",
                     Params={"Bucket": bucket, "Key": key},
                     ExpiresIn=expires_in,
                 )
-
                 return {"url": presigned_url, "expires_in": expires_in}
 
             except ClientError as e:
-                raise HTTPException(
-                    status_code=500, detail=f"Failed to generate presigned URL: {e}"
-                )
-        
-        return {"url": "", "error": "Could not determine video source"}
+                print(f"WARNING: S3 presigned URL failed: {e}")
 
+        # --- Try S3_BUCKET env fallback ---
+        if not s3_uri.startswith("s3://"):
+            fallback_bucket = os.environ.get("S3_BUCKET")
+            if fallback_bucket and s3_client:
+                try:
+                    presigned_url = s3_client.generate_presigned_url(
+                        "get_object",
+                        Params={"Bucket": fallback_bucket, "Key": s3_uri},
+                        ExpiresIn=expires_in,
+                    )
+                    return {"url": presigned_url, "expires_in": expires_in}
+                except ClientError:
+                    pass
+
+        # No video source found - return empty URL (not an error)
+        print(f"WARNING: No video found for {analysis_name} (source: {s3_uri})")
+        return {"url": "", "message": "No video available"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

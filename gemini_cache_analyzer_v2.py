@@ -131,7 +131,7 @@ ANALYSIS_TASKS = {
     
     For timestamps at ~0.5s intervals, list ALL visible players:
     - Use the same track_id assigned in Step 1
-    - Record zone (z0-z15)
+    - Record zone (z0-z13)
     - Note jersey number if visible (or null)
     
     Output format:
@@ -187,7 +187,7 @@ ANALYSIS_TASKS = {
     - Output ONLY valid JSON array
     - Include frames at regular intervals (~0.5s recommended) 
     - Ball states: "Holding", "Dribbling", "In-Air", "Loose" ONLY
-    - Zones: Always "z" + number (z0-z15)
+    - Zones: Always "z" + number (z0-z13)
     - track_id: MUST be consistent across frames (same player = same ID)
     - jersey_number: string or null (NEVER guess)
     """

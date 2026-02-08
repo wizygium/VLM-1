@@ -75,22 +75,29 @@ body {
 /* --- Main Stage --- */
 .main-stage {
     display: grid;
-    grid-template-columns: 1fr 1fr 300px;
-    /* Video, Court, Info */
+    grid-template-columns: 5fr 5fr 2fr;
+    /* Video (5), Court (5), Events (2) — events < half of either panel */
     gap: 2px;
-    /* Small gap for borders */
     background-color: var(--bg-dark);
     overflow: hidden;
+    min-height: 0;
+    /* Allow grid children to shrink below content size */
 }
 
 .panel {
     background-color: var(--bg-panel);
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    align-items: center;
     position: relative;
     overflow: hidden;
+    min-height: 0;
+}
+
+/* Video & Court Panels: center their content */
+.video-panel,
+.court-panel {
+    justify-content: center;
+    align-items: center;
 }
 
 /* Video & Court Containers */
@@ -105,17 +112,15 @@ body {
 }
 
 video {
-    max-width: 100%;
-    max-height: 100%;
+    width: 100%;
+    height: 100%;
     object-fit: contain;
+    background: #000;
 }
 
 canvas {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    display: block;
     background: #fff;
-    /* Court background */
 }
 
 /* Info Panel */
@@ -125,6 +130,7 @@ canvas {
     flex-direction: column;
     justify-content: flex-start;
     align-items: stretch;
+    min-height: 0;
 }
 
 .info-tabs {
@@ -317,7 +323,8 @@ input[type="range"] {
     display: none !important;
 }
 
-.loading-overlay {
+.loading-overlay,
+.error-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -328,6 +335,8 @@ input[type="range"] {
     justify-content: center;
     align-items: center;
     z-index: 10;
+    color: var(--text-muted);
+    font-size: 1.1rem;
 }
 
 .spinner {
@@ -352,8 +361,14 @@ input[type="range"] {
 /* Responsive adjustments */
 @media (max-width: 1024px) {
     .main-stage {
-        grid-template-columns: 1fr;
-        /* Stack on smaller screens if needed, or 1fr 1fr */
-        grid-template-rows: 1fr 1fr 200px;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr auto;
+    }
+
+    .info-panel {
+        grid-column: 1 / -1;
+        max-height: 200px;
+        border-left: none;
+        border-top: 1px solid var(--border);
     }
 }

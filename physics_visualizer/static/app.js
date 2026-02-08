@@ -206,43 +206,44 @@ async function loadAnalysis(analysisName) {
             eventsData = null;
         }
 
-        // Get video URL
-        const videoUrlResponse = await fetch(`/api/video-url/${analysisName}`);
-        const videoUrlData = await videoUrlResponse.json();
+        // Get video URL (non-blocking: analysis loads even if video unavailable)
+        try {
+            const videoUrlResponse = await fetch(`/api/video-url/${analysisName}`);
+            const videoUrlData = await videoUrlResponse.json();
 
-        if (videoUrlData.error) {
-            throw new Error(videoUrlData.error);
-        }
-
-        if (!videoUrlData.url) {
-            console.warn('Received empty video URL');
-            logSystemMessage(`Warning: No video URL returned for '${analysisName}'`, 'warn');
-        } else {
-            logSystemMessage(`Loading video: ${videoUrlData.url.substring(0, 50)}...`, 'system');
-        }
-
-        // Load video
-        console.log("Setting video src:", videoUrlData.url);
-        videoPlayer.src = videoUrlData.url;
-
-        // Add detailed error logging
-        videoPlayer.onerror = (e) => {
-            const err = videoPlayer.error;
-            let msg = 'Unknown Media Error';
-            if (err) {
-                switch (err.code) {
-                    case 1: msg = 'MEDIA_ERR_ABORTED'; break;
-                    case 2: msg = 'MEDIA_ERR_NETWORK'; break;
-                    case 3: msg = 'MEDIA_ERR_DECODE'; break;
-                    case 4: msg = 'MEDIA_ERR_SRC_NOT_SUPPORTED'; break;
-                }
-                msg += ` (${err.message})`;
+            if (videoUrlData.url) {
+                logSystemMessage(`Loading video: ${videoUrlData.url.substring(0, 60)}...`, 'system');
+                videoPlayer.src = videoUrlData.url;
+                videoPlayer.onerror = (e) => {
+                    const err = videoPlayer.error;
+                    let msg = 'Unknown Media Error';
+                    if (err) {
+                        switch (err.code) {
+                            case 1: msg = 'MEDIA_ERR_ABORTED'; break;
+                            case 2: msg = 'MEDIA_ERR_NETWORK'; break;
+                            case 3: msg = 'MEDIA_ERR_DECODE'; break;
+                            case 4: msg = 'MEDIA_ERR_SRC_NOT_SUPPORTED'; break;
+                        }
+                        msg += ` (${err.message})`;
+                    }
+                    console.error('Video Error:', msg, e);
+                    logSystemMessage(`Video Error: ${msg}`, 'error');
+                    videoError.classList.remove('hidden');
+                    videoError.querySelector('p').textContent = '⚠️ Video unavailable';
+                };
+                videoPlayer.load();
+            } else {
+                console.warn('No video URL returned');
+                logSystemMessage(`No video available for '${analysisName}'`, 'warn');
+                videoError.classList.remove('hidden');
+                videoError.querySelector('p').textContent = '⚠️ No video available';
             }
-            console.error('Video Error:', msg, e);
-            logSystemMessage(`Video Error: ${msg}`, 'error');
-        };
-
-        videoPlayer.load();
+        } catch (videoErr) {
+            console.warn('Video URL fetch failed:', videoErr);
+            logSystemMessage(`Video unavailable: ${videoErr.message}`, 'warn');
+            videoError.classList.remove('hidden');
+            videoError.querySelector('p').textContent = '⚠️ Video unavailable';
+        }
 
         // Update UI
         if (typeof updateAnalysisInfo === 'function') updateAnalysisInfo();
@@ -346,15 +347,16 @@ function renderCurrentFrame() {
 }
 
 /**
- * Update highlighting for active event card
+ * Update highlighting for active event card and auto-scroll it into view
  */
 function updateActiveEvent(timestamp) {
     const time = parseFloat(timestamp);
     const cards = document.querySelectorAll('.event-card');
+    let activeCard = null;
+
     cards.forEach(card => {
         const start = parseFloat(card.dataset.startTime);
         const end = parseFloat(card.dataset.endTime);
-        const type = card.dataset.type;
 
         let isActive = false;
         if (start === end) {
@@ -367,10 +369,22 @@ function updateActiveEvent(timestamp) {
 
         if (isActive) {
             card.classList.add('active');
+            activeCard = card;
         } else {
             card.classList.remove('active');
         }
     });
+
+    // Auto-scroll the active event into view within the scrollable list
+    if (activeCard && eventsList) {
+        const listRect = eventsList.getBoundingClientRect();
+        const cardRect = activeCard.getBoundingClientRect();
+
+        // Only scroll if the card is outside the visible area
+        if (cardRect.top < listRect.top || cardRect.bottom > listRect.bottom) {
+            activeCard.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+    }
 }
 
 /**

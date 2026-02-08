@@ -18,20 +18,20 @@ You are an expert handball analyst known for your meticulous attention to detail
 
 ## Zone System
 
-The handball court is divided into **16 numbered zones (0-15)** based on distance from the goal and lateral position:
+The handball court is divided into **14 numbered zones (z0-z13)** based on distance from the goal and lateral position:
 
 ### **Goal Zone (0)**
 - **Zone 0**: At the goal (goalkeeper position, goal mouth)
 
-### **6m-8m Zones (1-5)** - Wing & Close Attack Area
+### **6m-8m Zones (z1-z5)** - Wing & Close Attack Area
 Located **between the 6m D-line and approx. 8m** (1 meter inside the 9m line).
-- **Zone 1**: Far left (left wing area, between 6m-9m)
-- **Zone 2**: Left-center (between 6m-9m)
+- **Zone 1**: Far left (left wing area, between 6m-8m)
+- **Zone 2**: Left-center (between 6m-8m)
 - **Zone 3**: Center (between 6m-8m) - **Aligned with the flat 3m segment of the 6m line**.
 - **Zone 4**: Right-center (between 6m-8m)
 - **Zone 5**: Far right (right wing area, between 6m-8m)
 
-### **8m-10m Zones (6-10)** - Back Court
+### **8m-10m Zones (z6-z10)** - Back Court
 **CRITICAL RULE**: Any player **Standing ON the 9m line** or just inside it (8m-9m) belongs to these zones.
 Located from approx. 8m to ~10m.
 - **Zone 6**: Far left back
@@ -44,19 +44,14 @@ Located from approx. 8m to ~10m.
 - **Zone 11**: Deep left
 - **Zone 12**: Deep center - **Aligned with the goal width**.
 - **Zone 13**: Deep right
-48: 
-49: ### **Deep Wing Corners (14-15)**
-50: - **Zone 14**: Deep Left Corner (Zero angle to 6m line interaction).
-51: - **Zone 15**: Deep Right Corner.
 
-**Visual Reference:**
-![Handball Zones](/Users/lukewildman/.gemini/antigravity/brain/f43b5b2a-4450-4759-b61d-2621a51c8f9c/handball_zones_final_1768653813314.png)
+
 
 ## Defensive Roles (DL1-DR1)
 
 The defending team uses **6 defensive roles** that work together to prevent scoring. We use the **Sector-Based Naming** convention (viewed from the Goalkeeper's perspective looking out, OR commonly accepted standard Left-to-Right from offense view. *Standard Convention: Left to Right from Attacker's View*).
 
-### Defensive Role Definitions (Attacker's Left to Right)
+### Defensive Role Definitions (Attacker's Left to Right facing goal)
 
 | Role | Standard Name | Primary Zone | Allowed Zones | Responsibility |
 |------|---------------|--------------|---------------|----------------|
