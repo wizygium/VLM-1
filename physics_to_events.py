@@ -21,6 +21,7 @@ from inference import (
     assign_defense_roles,
     PlayerPosition,
     EventDetector,
+    determine_attacking_team,
 )
 
 
@@ -45,46 +46,57 @@ def normalize_zone(zone: Any) -> int:
 
 
 def build_roster(frames: List[Dict]) -> Dict[str, List[Dict]]:
-    """
-    Build roster from first frame by assigning roles.
+    """Build roster from first frame by assigning roles.
+
+    Uses multi-signal inference (ball possession, goalkeeper proximity,
+    zone depth, defensive formation) to determine which jersey colour
+    is attacking vs defending.  Falls back to explicit ``"attack"``/
+    ``"defense"`` labels when present.
+
+    Returns:
+        dict with "attack" and "defense" player lists, plus
+        "_classification" metadata key.
     """
     if not frames:
-        return {"attack": [], "defense": []}
-    
+        return {"attack": [], "defense": [], "_classification": None}
+
+    # --- Determine attacking / defending team from ALL frames ---
+    classification = determine_attacking_team(frames)
+
     first_frame = frames[0]
     players = first_frame.get("players", [])
-    
-    # Separate by team
+
+    # Separate by classified team
     attackers = [
         PlayerPosition(
             track_id=p["track_id"],
             zone=normalize_zone(p.get("zone", 0)),
-            jersey_number=p.get("jersey_number")
+            jersey_number=p.get("jersey_number"),
         )
         for p in players
-        if p.get("team") in ["attack", "blue"]
+        if p.get("team") == classification.attacking_team
     ]
-    
+
     defenders = [
         PlayerPosition(
             track_id=p["track_id"],
             zone=normalize_zone(p.get("zone", 0)),
-            jersey_number=p.get("jersey_number")
+            jersey_number=p.get("jersey_number"),
         )
         for p in players
-        if p.get("team") in ["defense", "white"]
+        if p.get("team") == classification.defending_team
     ]
-    
+
     # Assign roles
     attack_roles = assign_attack_roles(attackers)
     defense_roles = assign_defense_roles(defenders)
-    
+
     roster = {
         "attack": [
             {
                 "track_id": p.track_id,
                 "role": attack_roles.get(p.track_id, "UNK"),
-                "jersey_number": p.jersey_number
+                "jersey_number": p.jersey_number,
             }
             for p in attackers
         ],
@@ -92,12 +104,18 @@ def build_roster(frames: List[Dict]) -> Dict[str, List[Dict]]:
             {
                 "track_id": p.track_id,
                 "role": defense_roles.get(p.track_id, "UNK"),
-                "jersey_number": p.jersey_number
+                "jersey_number": p.jersey_number,
             }
             for p in defenders
-        ]
+        ],
+        "_classification": {
+            "attacking_team": classification.attacking_team,
+            "defending_team": classification.defending_team,
+            "goalkeeper_team": classification.goalkeeper_team,
+            "confidence": classification.confidence,
+        },
     }
-    
+
     return roster
 
 
@@ -141,8 +159,9 @@ def transform_physics_to_events(physics_data: Dict, source_path: Path) -> Dict:
     frames = physics_data.get("frames", [])
     metadata = physics_data.get("metadata", {})
     
-    # Build roster from first frame
+    # Build roster (includes multi-signal team classification)
     roster = build_roster(frames)
+    classification_meta = roster.pop("_classification", None)
     all_roles = get_all_roles(roster)
     
     # Collect attacker/defender IDs for turnover detection
@@ -180,16 +199,20 @@ def transform_physics_to_events(physics_data: Dict, source_path: Path) -> Dict:
         
         enriched_frames.append(enriched)
     
+    result_metadata = {
+        "video": metadata.get("video", physics_data.get("video", "")),
+        "source_physics": str(source_path),
+        "derived_at": datetime.now().isoformat(),
+        "model": metadata.get("model", ""),
+        "fps": metadata.get("fps"),
+        "total_frames": len(frames),
+        "duration_seconds": metadata.get("duration_seconds"),
+    }
+    if classification_meta:
+        result_metadata["team_classification"] = classification_meta
+
     return {
-        "metadata": {
-            "video": metadata.get("video", physics_data.get("video", "")),
-            "source_physics": str(source_path),
-            "derived_at": datetime.now().isoformat(),
-            "model": metadata.get("model", ""),
-            "fps": metadata.get("fps"),
-            "total_frames": len(frames),
-            "duration_seconds": metadata.get("duration_seconds"),
-        },
+        "metadata": result_metadata,
         "roster": roster,
         "events": events_list,
         "frames": enriched_frames,
@@ -226,8 +249,15 @@ def main(physics_json_path: str, output: str, verbose: bool):
     n_attack = len(events_data['roster']['attack'])
     n_defense = len(events_data['roster']['defense'])
     n_events = len(events_data['events'])
+    tc = events_data['metadata'].get('team_classification', {})
     
     click.echo(f"\n✅ Output: {output_path}")
+    if tc:
+        click.echo(
+            f"   Teams: {tc.get('attacking_team', '?')}=attack, "
+            f"{tc.get('defending_team', '?')}=defense"
+            f" (confidence={tc.get('confidence', 0):.2f})"
+        )
     click.echo(f"   Roster: {n_attack} attackers, {n_defense} defenders")
     click.echo(f"   Events: {n_events} detected")
     

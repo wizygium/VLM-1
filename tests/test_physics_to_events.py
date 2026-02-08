@@ -69,6 +69,40 @@ class TestJDFScene001Regression:
                     f"missing 'role' field"
                 )
 
+    def test_white_team_is_attacking(self, jdf_physics_path):
+        """Issue #32 regression: white team must be classified as attackers."""
+        physics = parse_physics_json(jdf_physics_path)
+        result = transform_physics_to_events(physics, jdf_physics_path)
+        tc = result["metadata"].get("team_classification", {})
+        assert tc.get("attacking_team") == "white", (
+            f"Expected white=attacking, got {tc}"
+        )
+        assert tc.get("defending_team") == "blue"
+        assert tc.get("goalkeeper_team") == "yellow"
+
+        # All ball holders (t1, t2, t3, t6) must be in the attack roster
+        attack_ids = {p["track_id"] for p in result["roster"]["attack"]}
+        assert {"t1", "t2", "t3", "t6"}.issubset(attack_ids), (
+            f"Ball holders not all in attack roster: {attack_ids}"
+        )
+
+    def test_attackers_get_attack_roles(self, jdf_physics_path):
+        """White attackers should get attacking roles (LW/RW/PV/LB/CB/RB)."""
+        physics = parse_physics_json(jdf_physics_path)
+        result = transform_physics_to_events(physics, jdf_physics_path)
+        attack_roles = {p["role"] for p in result["roster"]["attack"]}
+        defense_roles = {p["role"] for p in result["roster"]["defense"]}
+        # Attack roles should contain at least some of LW, RW, LB, CB, RB, PV
+        attack_role_set = {"LW", "RW", "PV", "LB", "CB", "RB"}
+        assert len(attack_roles & attack_role_set) >= 3, (
+            f"Too few attacking roles: {attack_roles}"
+        )
+        # Defense roles should be DL1-DR1
+        defense_role_set = {"DL1", "DL2", "DL3", "DR3", "DR2", "DR1"}
+        assert len(defense_roles & defense_role_set) >= 3, (
+            f"Too few defensive roles: {defense_roles}"
+        )
+
 
 class TestEdgeCases:
     """TC-F2, F3: Edge cases for the pipeline."""
