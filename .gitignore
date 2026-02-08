@@ -29,11 +29,14 @@ venv/
 
 # Results and Cache
 results_*/
-test*/
 *.json
 !match_context.json
 !GerIsl.json
 !JapArg.json
+!data/analyses/TEST-*_physics.json
+
+# Pytest
+!tests/
 
 # Image/Video parts
 *.part

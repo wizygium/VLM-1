@@ -2,6 +2,9 @@
 Event detection module for Stage 2 inference.
 
 Derives events (PASS, SHOT, MOVE, TURNOVER) by comparing consecutive physics frames.
+
+Uses a state machine to track ball possession across In-Air frames, enabling
+detection of passes that span multiple frames (Holding→In-Air→...→Holding).
 """
 
 from dataclasses import dataclass
@@ -34,8 +37,8 @@ class Event:
     track_id: Optional[str] = None  # For MOVE events
     role: Optional[str] = None  # For MOVE events
     outcome: Optional[str] = None  # For SHOT events
-    turnover_type: Optional[str] = None  # For TURNOVER: STEAL, OUT_OF_BOUNDS, FOUL
-    
+    turnover_type: Optional[str] = None  # For TURNOVER: STEAL, OUT_OF_BOUNDS, LOST_BALL
+
     def to_dict(self) -> Dict[str, Any]:
         result = {
             "event_id": self.event_id,
@@ -43,7 +46,7 @@ class Event:
             "start_time": self.start_time,
             "end_time": self.end_time,
         }
-        
+
         if self.type == EventType.PASS:
             result.update({
                 "from_track_id": self.from_track_id,
@@ -72,16 +75,25 @@ class Event:
                 "from_track_id": self.from_track_id,
                 "from_role": self.from_role,
                 "turnover_type": self.turnover_type,
-                "to_track_id": self.to_track_id,  # Defender who stole (if STEAL)
+                "to_track_id": self.to_track_id,
             })
-        
+
         return result
 
 
 class EventDetector:
-    """Detects events by comparing consecutive physics frames."""
-    
-    def __init__(self, roles: Dict[str, str], attacker_ids: Set[str] = None, defender_ids: Set[str] = None):
+    """Detects events by comparing consecutive physics frames.
+
+    Maintains internal state (last known ball holder) across calls to
+    detect_all_events() so that passes spanning In-Air frames are captured.
+    """
+
+    def __init__(
+        self,
+        roles: Dict[str, str],
+        attacker_ids: Set[str] = None,
+        defender_ids: Set[str] = None,
+    ):
         """
         Args:
             roles: Dictionary mapping track_id to role
@@ -92,66 +104,58 @@ class EventDetector:
         self.attacker_ids = attacker_ids or set()
         self.defender_ids = defender_ids or set()
         self.event_counter = 0
-    
+
+        # State machine: track last known ball holder across frames
+        self._last_holder: Optional[str] = None
+        self._last_holder_zone: Optional[int] = None
+        self._last_holder_time: Optional[float] = None
+
     def _next_event_id(self) -> int:
         self.event_counter += 1
         return self.event_counter
-    
+
     def _is_attacker(self, track_id: Optional[str]) -> bool:
         if not track_id:
             return False
         return track_id in self.attacker_ids
-    
+
     def _is_defender(self, track_id: Optional[str]) -> bool:
         if not track_id:
             return False
         return track_id in self.defender_ids
-    
-    def detect_pass(self, frame_n: Dict, frame_n1: Dict) -> Optional[Event]:
+
+    def _different_team(self, id_a: Optional[str], id_b: Optional[str]) -> bool:
+        """Check if two track_ids are on KNOWN different teams.
+
+        Returns True only when we can confirm they are on opposing teams.
+        Returns False if either player's team is unknown.
         """
-        Detect PASS event when ball holder changes.
-        
-        Simplified: If holder changes between attackers, a pass occurred
-        (even without explicit In-Air detection).
+        if not id_a or not id_b:
+            return False
+        a_attack = id_a in self.attacker_ids
+        a_defense = id_a in self.defender_ids
+        b_attack = id_b in self.attacker_ids
+        b_defense = id_b in self.defender_ids
+        return (a_attack and b_defense) or (a_defense and b_attack)
+
+    def _normalize_zone(self, zone: Any) -> int:
+        """Convert zone to integer format."""
+        if isinstance(zone, int):
+            return zone
+        if isinstance(zone, str):
+            return int(zone.replace("z", ""))
+        return 0
+
+    def detect_shot(self, frame_n: Dict, frame_n1: Dict) -> Optional[Event]:
         """
-        ball_n = frame_n.get("ball", {})
-        ball_n1 = frame_n1.get("ball", {})
-        
-        holder_n = ball_n.get("holder_track_id")
-        holder_n1 = ball_n1.get("holder_track_id")
-        
-        # Ball changed hands between two valid holders
-        if holder_n != holder_n1 and holder_n is not None and holder_n1 is not None:
-            # Both are attackers = PASS
-            if self._is_attacker(holder_n) and self._is_attacker(holder_n1):
-                return Event(
-                    event_id=self._next_event_id(),
-                    type=EventType.PASS,
-                    start_time=frame_n.get("timestamp", 0),
-                    end_time=frame_n1.get("timestamp", 0),
-                    from_track_id=holder_n,
-                    from_role=self.roles.get(holder_n),
-                    from_zone=ball_n.get("zone"),
-                    to_track_id=holder_n1,
-                    to_role=self.roles.get(holder_n1),
-                    to_zone=ball_n1.get("zone"),
-                )
-        
-        return None
-    
-    def detect_shot(self, frame_n: Dict, frame_n1: Dict, is_last_frame: bool = False) -> Optional[Event]:
-        """
-        Detect SHOT event when ball enters goal zone (0).
-        
-        Note: Shots typically only occur at scene end.
+        Detect SHOT event when ball enters goal zone (z0).
         """
         ball_n = frame_n.get("ball", {})
         ball_n1 = frame_n1.get("ball", {})
-        
+
         zone_n = self._normalize_zone(ball_n.get("zone"))
         zone_n1 = self._normalize_zone(ball_n1.get("zone"))
-        holder_n = ball_n.get("holder_track_id")
-        
+
         # Ball trajectory towards goal
         if zone_n != 0 and zone_n1 == 0:
             state_n1 = ball_n1.get("state", "").lower()
@@ -160,79 +164,40 @@ class EventDetector:
                 outcome = "GOAL"
             elif "save" in state_n1 or "block" in state_n1:
                 outcome = "SAVE"
-            
+
+            # Use last known holder as the shooter
+            shooter = self._last_holder
+            shooter_zone = self._last_holder_zone if self._last_holder_zone else zone_n
+
             return Event(
                 event_id=self._next_event_id(),
                 type=EventType.SHOT,
-                start_time=frame_n.get("timestamp", 0),
+                start_time=self._last_holder_time or frame_n.get("timestamp", 0),
                 end_time=frame_n1.get("timestamp", 0),
-                from_track_id=holder_n,
-                from_role=self.roles.get(holder_n) if holder_n else None,
-                from_zone=zone_n,
+                from_track_id=shooter,
+                from_role=self.roles.get(shooter) if shooter else None,
+                from_zone=shooter_zone,
                 outcome=outcome,
             )
-        
+
         return None
-    
-    def detect_turnover(self, frame_n: Dict, frame_n1: Dict) -> Optional[Event]:
-        """
-        Detect TURNOVER: loss of possession.
-        
-        Types:
-        - STEAL: Defender takes ball from attacker
-        - OUT_OF_BOUNDS: Ball goes over sideline (state = "Out")
-        - FOUL: Attacking foul (future: referee signal detection)
-        """
-        ball_n = frame_n.get("ball", {})
-        ball_n1 = frame_n1.get("ball", {})
-        
-        holder_n = ball_n.get("holder_track_id")
-        holder_n1 = ball_n1.get("holder_track_id")
-        state_n1 = ball_n1.get("state", "")
-        
-        # Out of bounds detection
-        if state_n1.lower() in ["out", "out_of_bounds", "sideline"]:
-            return Event(
-                event_id=self._next_event_id(),
-                type=EventType.TURNOVER,
-                start_time=frame_n.get("timestamp", 0),
-                end_time=frame_n1.get("timestamp", 0),
-                from_track_id=holder_n,
-                from_role=self.roles.get(holder_n) if holder_n else None,
-                turnover_type="OUT_OF_BOUNDS",
-            )
-        
-        # Steal detection: attacker had ball, now defender has it
-        if self._is_attacker(holder_n) and self._is_defender(holder_n1):
-            return Event(
-                event_id=self._next_event_id(),
-                type=EventType.TURNOVER,
-                start_time=frame_n.get("timestamp", 0),
-                end_time=frame_n1.get("timestamp", 0),
-                from_track_id=holder_n,
-                from_role=self.roles.get(holder_n),
-                turnover_type="STEAL",
-                to_track_id=holder_n1,
-            )
-        
-        return None
-    
+
     def detect_moves(self, frame_n: Dict, frame_n1: Dict) -> List[Event]:
         """
         Detect MOVE events when player zones change.
         Requires consistent track_id between frames.
         """
         events = []
-        
+
         players_n = {p["track_id"]: p for p in frame_n.get("players", [])}
         players_n1 = {p["track_id"]: p for p in frame_n1.get("players", [])}
-        
+
         for track_id, player_n in players_n.items():
             if track_id in players_n1:
                 player_n1 = players_n1[track_id]
                 zone_n = self._normalize_zone(player_n.get("zone"))
                 zone_n1 = self._normalize_zone(player_n1.get("zone"))
-                
+
                 if zone_n != zone_n1:
                     events.append(Event(
                         event_id=self._next_event_id(),
@@ -244,39 +209,104 @@ class EventDetector:
                         from_zone=zone_n,
                         to_zone=zone_n1,
                     ))
-        
+
         return events
-    
-    def _normalize_zone(self, zone: Any) -> int:
-        """Convert zone to integer format."""
-        if isinstance(zone, int):
-            return zone
-        if isinstance(zone, str):
-            return int(zone.replace("z", ""))
-        return 0
-    
-    def detect_all_events(self, frame_n: Dict, frame_n1: Dict, is_last_frame: bool = False) -> List[Event]:
-        """Detect all event types between two frames."""
+
+    def detect_all_events(
+        self, frame_n: Dict, frame_n1: Dict, is_last_frame: bool = False
+    ) -> List[Event]:
+        """Detect all event types between two consecutive frames.
+
+        Uses internal state machine to track ball holder across In-Air frames.
+        Must be called sequentially for each frame pair in order.
+        """
         events = []
-        
-        # Check for turnover first (takes precedence)
-        turnover = self.detect_turnover(frame_n, frame_n1)
-        if turnover:
-            events.append(turnover)
-            return events  # Turnover ends the play
-        
-        # Check for pass
-        pass_event = self.detect_pass(frame_n, frame_n1)
-        if pass_event:
-            events.append(pass_event)
-        
-        # Check for shot
-        shot_event = self.detect_shot(frame_n, frame_n1, is_last_frame)
-        if shot_event:
-            events.append(shot_event)
-        
-        # Check for moves
+
+        ball_n = frame_n.get("ball", {})
+        ball_n1 = frame_n1.get("ball", {})
+        holder_n = ball_n.get("holder_track_id")
+        holder_n1 = ball_n1.get("holder_track_id")
+        state_n = ball_n.get("state", "")
+        state_n1 = ball_n1.get("state", "")
+
+        # --- Update state machine from frame_n ---
+        if holder_n:
+            self._last_holder = holder_n
+            self._last_holder_zone = self._normalize_zone(ball_n.get("zone"))
+            self._last_holder_time = frame_n.get("timestamp", 0)
+
+        # --- 1. Out of bounds ---
+        if state_n1.lower() in ["out", "out_of_bounds", "sideline"]:
+            events.append(Event(
+                event_id=self._next_event_id(),
+                type=EventType.TURNOVER,
+                start_time=self._last_holder_time or frame_n.get("timestamp", 0),
+                end_time=frame_n1.get("timestamp", 0),
+                from_track_id=self._last_holder,
+                from_role=self.roles.get(self._last_holder) if self._last_holder else None,
+                turnover_type="OUT_OF_BOUNDS",
+            ))
+            self._last_holder = None
+            self._last_holder_zone = None
+            self._last_holder_time = None
+            return events
+
+        # --- 2. Loose ball (possession lost) ---
+        if state_n1.lower() == "loose" and state_n.lower() != "loose":
+            events.append(Event(
+                event_id=self._next_event_id(),
+                type=EventType.TURNOVER,
+                start_time=self._last_holder_time or frame_n.get("timestamp", 0),
+                end_time=frame_n1.get("timestamp", 0),
+                from_track_id=self._last_holder,
+                from_role=self.roles.get(self._last_holder) if self._last_holder else None,
+                turnover_type="LOST_BALL",
+            ))
+            # Don't clear last_holder — shot detection may still reference it
+
+        # --- 3. Shot into goal zone ---
+        shot = self.detect_shot(frame_n, frame_n1)
+        if shot:
+            events.append(shot)
+
+        # --- 4. Pass / Steal detection via state machine ---
+        if holder_n1 and self._last_holder and holder_n1 != self._last_holder:
+            # New holder is different from last known holder
+            if self._different_team(self._last_holder, holder_n1):
+                # Cross-team = STEAL / TURNOVER
+                events.append(Event(
+                    event_id=self._next_event_id(),
+                    type=EventType.TURNOVER,
+                    start_time=self._last_holder_time or frame_n.get("timestamp", 0),
+                    end_time=frame_n1.get("timestamp", 0),
+                    from_track_id=self._last_holder,
+                    from_role=self.roles.get(self._last_holder),
+                    turnover_type="STEAL",
+                    to_track_id=holder_n1,
+                ))
+            else:
+                # Same team or unknown team = PASS
+                events.append(Event(
+                    event_id=self._next_event_id(),
+                    type=EventType.PASS,
+                    start_time=self._last_holder_time or frame_n.get("timestamp", 0),
+                    end_time=frame_n1.get("timestamp", 0),
+                    from_track_id=self._last_holder,
+                    from_role=self.roles.get(self._last_holder),
+                    from_zone=self._last_holder_zone,
+                    to_track_id=holder_n1,
+                    to_role=self.roles.get(holder_n1),
+                    to_zone=self._normalize_zone(ball_n1.get("zone")),
+                ))
+
+        # --- Update state machine from frame_n1 ---
+        if holder_n1:
+            self._last_holder = holder_n1
+            self._last_holder_zone = self._normalize_zone(ball_n1.get("zone"))
+            self._last_holder_time = frame_n1.get("timestamp", 0)
+
+        # --- 5. Player movement ---
         move_events = self.detect_moves(frame_n, frame_n1)
         events.extend(move_events)
-        
+
         return events

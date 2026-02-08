@@ -234,10 +234,13 @@ def main(physics_json_path: str, output: str, verbose: bool):
     if verbose and events_data['events']:
         click.echo("\n📋 Events:")
         for e in events_data['events'][:10]:
+            t = float(e.get('start_time', 0))
             if e['type'] == 'PASS':
-                click.echo(f"   PASS: {e.get('from_role')} → {e.get('to_role')} @ {e['start_time']:.1f}s")
+                click.echo(f"   PASS: {e.get('from_role')} → {e.get('to_role')} @ {t:.1f}s")
             elif e['type'] == 'SHOT':
                 click.echo(f"   SHOT: {e.get('from_role')} from z{e.get('from_zone')} → {e.get('outcome')}")
+            elif e['type'] == 'TURNOVER':
+                click.echo(f"   TURNOVER ({e.get('turnover_type')}): {e.get('from_role')} @ {t:.1f}s")
             elif e['type'] == 'MOVE':
                 click.echo(f"   MOVE: {e.get('role')} z{e.get('from_zone')} → z{e.get('to_zone')}")
 

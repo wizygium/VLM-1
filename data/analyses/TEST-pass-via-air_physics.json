@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "video": "test.mp4",
+    "model": "test",
+    "fps": 16.0,
+    "total_frames": 3,
+    "duration_seconds": 0.1875,
+    "test_description": "Pass via In-Air: t1(z7) releases → In-Air → t2(z8) catches"
+  },
+  "frames": [
+    {
+      "timestamp": "0.0",
+      "ball": { "holder_track_id": "t1", "zone": "z7", "state": "Holding" },
+      "players": [
+        { "track_id": "t1", "zone": "z7", "jersey_number": null, "team": "white" },
+        { "track_id": "t2", "zone": "z8", "jersey_number": "25", "team": "white" },
+        { "track_id": "t3", "zone": "z9", "jersey_number": null, "team": "white" },
+        { "track_id": "t8", "zone": "z2", "jersey_number": null, "team": "blue" },
+        { "track_id": "t9", "zone": "z3", "jersey_number": null, "team": "blue" }
+      ]
+    },
+    {
+      "timestamp": "0.5",
+      "ball": { "holder_track_id": null, "zone": "z7", "state": "In-Air" },
+      "players": [
+        { "track_id": "t1", "zone": "z7", "jersey_number": null, "team": "white" },
+        { "track_id": "t2", "zone": "z8", "jersey_number": "25", "team": "white" },
+        { "track_id": "t3", "zone": "z9", "jersey_number": null, "team": "white" },
+        { "track_id": "t8", "zone": "z2", "jersey_number": null, "team": "blue" },
+        { "track_id": "t9", "zone": "z3", "jersey_number": null, "team": "blue" }
+      ]
+    },
+    {
+      "timestamp": "1.0",
+      "ball": { "holder_track_id": "t2", "zone": "z8", "state": "Holding" },
+      "players": [
+        { "track_id": "t1", "zone": "z7", "jersey_number": null, "team": "white" },
+        { "track_id": "t2", "zone": "z8", "jersey_number": "25", "team": "white" },
+        { "track_id": "t3", "zone": "z9", "jersey_number": null, "team": "white" },
+        { "track_id": "t8", "zone": "z2", "jersey_number": null, "team": "blue" },
+        { "track_id": "t9", "zone": "z3", "jersey_number": null, "team": "blue" }
+      ]
+    }
+  ]
+}

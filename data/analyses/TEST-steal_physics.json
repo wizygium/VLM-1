@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "video": "test.mp4",
+    "model": "test",
+    "fps": 16.0,
+    "total_frames": 3,
+    "duration_seconds": 0.1875,
+    "test_description": "Steal: blue attacker t8 has ball, white defender t1 steals it"
+  },
+  "frames": [
+    {
+      "timestamp": "0.0",
+      "ball": { "holder_track_id": "t8", "zone": "z3", "state": "Holding" },
+      "players": [
+        { "track_id": "t1", "zone": "z3", "jersey_number": null, "team": "white" },
+        { "track_id": "t8", "zone": "z3", "jersey_number": null, "team": "blue" }
+      ]
+    },
+    {
+      "timestamp": "0.5",
+      "ball": { "holder_track_id": null, "zone": "z3", "state": "In-Air" },
+      "players": [
+        { "track_id": "t1", "zone": "z3", "jersey_number": null, "team": "white" },
+        { "track_id": "t8", "zone": "z3", "jersey_number": null, "team": "blue" }
+      ]
+    },
+    {
+      "timestamp": "1.0",
+      "ball": { "holder_track_id": "t1", "zone": "z3", "state": "Holding" },
+      "players": [
+        { "track_id": "t1", "zone": "z3", "jersey_number": null, "team": "white" },
+        { "track_id": "t8", "zone": "z3", "jersey_number": null, "team": "blue" }
+      ]
+    }
+  ]
+}
