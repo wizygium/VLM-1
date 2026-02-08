@@ -122,7 +122,7 @@ VLMs do not inherently know strict sports rules. You must "teach" them in the pr
 ### Timeouts & Caching Strategy
 - **Issue**: Gemini 3 Pro's "Thinking" process is deep and slow (often >5 mins), causing standard API timeouts.
 - **Solution**: **High-Density Caching** with Modular Prompts.
-    - Create a cache with the video + full context (`gemini_context_zones.md`) baked in (TTL 1h).
+    - Create a cache with the video + full context (system prompt) baked in (TTL 1h).
     - Run separate, smaller prompt steps (Setup, Defense, Timeline, JSON) against this cache.
     - This avoids the single monolithic 600s+ transaction.
 
@@ -150,14 +150,19 @@ VLMs do not inherently know strict sports rules. You must "teach" them in the pr
 - Use zones: z0, z1, z2... (spatial position)
 - VLM reports ONLY what it sees, never infers roles
 
-### Stage 2 Role Assignment
-**Learning:** Roles should be inferred programmatically from zones:
-- z10, z11 = Wings (LW, RW)
-- z9 = CB zone
-- z8 = LB zone
-- z7 = RB zone
-- z2, z3 = Pivot zones (PV)
-- z0, z1 = Defensive zones (DL1, DL2, etc.)
+### Stage 2 Role Assignment (14-Zone System)
+**Learning:** Roles should be inferred programmatically from zones (as defined in `prompts/physics_prompt.md`):
+- z1, z6 = Left Wing (LW) — z1 = far left 6m-8m, z6 = far left back
+- z5, z10 = Right Wing (RW) — z5 = far right 6m-8m, z10 = far right back
+- z2, z3, z4 = Pivot zones (PV) — center 6m-8m band
+- z6-z10 = Back court, sorted L→R → LB, CB, RB
+- z1-z5 = Defensive zones, sorted L→R → DL1, DL2, DL3, DR3, DR2, DR1
+- z11 = deep left, z12 = deep center, z13 = deep right
+- z0 = Goal (goalkeeper)
+
+**Convention:** z1 = far LEFT, z5 = far RIGHT (attacker's perspective facing goal). This matches `prompts/physics_prompt.md`.
+
+**Known Bug (Feb 2026):** `role_assigner.py` has the z1/z5 wing mapping INVERTED relative to the prompt — `LEFT_WING_ZONES = [5, 6]` and `RIGHT_WING_ZONES = [1, 10]` should be swapped. The `zone_to_x_position()` function also needs correcting. See issue tracker.
 
 ### Event Format Changes
 **Critical:** Events now use `start_time` and `end_time` instead of single `time`:
@@ -175,6 +180,41 @@ time: e.start_time || e.time  // Fallback for backwards compatibility
 - Fast enough to capture passes (ball in air ~0.5s)
 - Slow enough to avoid redundant frames
 - Matches typical broadcast frame intervals
+
+### Team Classification: Never Hardcode Colours (Feb 2026)
+**Problem:** The original `build_roster()` in `physics_to_events.py` hardcoded `blue=attack, white=defense`. This fails for any match where the colour assignment is different (e.g., JDF-Scene-001 where white is attacking and blue is defending). The VLM reports jersey **colours**, not tactical roles.
+
+**Solution:** Multi-signal inference (`inference/team_classifier.py`). Score each jersey colour across 4 independent physical signals:
+
+| Signal | Weight | Rationale |
+|--------|--------|-----------|
+| Ball possession | 0.45–0.55 | The team holding the ball IS the attacking team. Most reliable single signal. |
+| GK spatial proximity | 0.25 | A player in z0 with a unique colour = goalkeeper. The field team clustered near z0 (in z1-z5) is defending. |
+| Average zone depth | 0.20–0.25 | Attackers play from backcourt (z6-z13), defenders cluster at 6m (z1-z5). |
+| Defensive formation | 0.10–0.20 | High proportion of a team's players in z1-z5 = defensive wall formation. |
+
+**Key design decisions:**
+- **Possession weight must dominate**: When no GK is visible, possession weight is 0.55 — enough to override depth (0.25) + formation (0.20) combined. In handball, ball possession is the definitive marker.
+- **Player count is unreliable**: Both teams field 6 outfield players. But camera coverage may miss players, players get 2-min suspensions, and the attacking team can substitute their GK for a 7th outfield player (7v6). Never use player count.
+- **GK wears a different colour**: By handball rules, the goalkeeper must wear a distinct colour from their team's outfield players. So the GK colour cannot be directly matched to a field team — use spatial proximity instead.
+- **Explicit labels as override**: If the physics JSON already has `team="attack"` / `team="defense"`, honour those directly (backward compat).
+
+### Visualizer: 14-Zone Polygonal Rendering (Feb 2026)
+**Problem:** Original visualizer used simplified rectangular zones that didn't match handball court geometry (6m D-line is an arc, not a straight line).
+
+**Solution:** Implemented precise polygonal zone rendering in `court-renderer.js`:
+- Zones along the 6m line use sampled arc points to follow the D-line curve
+- Zones along the 9m line follow the dashed arc at 9m
+- A zone editor tool (`physics_visualizer/static/zone-editor.html`) was created for the user to interactively draw and label zones, then export definitions
+
+### Unified Timeline: Physics + Events (Feb 2026)
+**Problem:** The visualizer only showed inferred events (PASS, SHOT, MOVE), making it impossible to see the raw physics state that led to those events.
+
+**Solution:** Merged physics frames and inferred events into a single chronological timeline:
+- Physics frame cards show ball state, holder, zone, and transition chips (catch/release/transfer/zone-change)
+- Inferred event cards are interleaved at the correct timestamp
+- Filter bar: All / Changes only (frames with state changes) / Events only (inferred events)
+- Active frame/event auto-scrolls into view during playback
 
 ### Browser Cache Traps
 **Issue:** After updating JS/CSS, browser serves cached versions causing confusion.

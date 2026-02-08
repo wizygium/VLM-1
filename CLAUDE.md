@@ -78,8 +78,11 @@ python validate_results.py results/analysis.json
 
 ### Testing & Linting
 ```bash
-# Run tests
-pytest
+# Run full test suite (59 tests: team classifier, event detector, role assigner, integration)
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_team_classifier.py -v
 
 # Lint/format (using ruff with 100 char line length)
 ruff check .
@@ -123,41 +126,47 @@ ruff format .
 - Validates output against JSON schema
 - Tracks API costs
 
-**Physics-Only Pipeline** ([gemini_physics_analyzer.py](gemini_physics_analyzer.py)):
-- **NEW:** Simplified 2-step pipeline for physics observation + programmatic event detection
-- **Advantages:** 5-10x faster, zero hallucination, 16fps high-resolution tracking
-- **Step 1 (VLM):** Track ball state (holder_track_id, zone, state) and player positions (track_id, zone, jersey_number) at 16fps. This is the **Physics Observation Layer**.
-- **Step 2 (Python):** Derive PASS/SHOT/MOVE events from physics state changes using [physics_to_events.py](physics_to_events.py). This is the **Tactical Event Layer**.
-- **Ontological Separation**: It is critical to distinguish between raw physics frames (observable facts) and tactical events (inferred sequences). This reduces VLM hallucination and improves UI clarity.
+**Two-Stage Physics→Events Pipeline** (RECOMMENDED):
+- **Step 1 (VLM):** [gemini_cache_analyzer_v2.py](gemini_cache_analyzer_v2.py) tracks ball state (holder_track_id, zone, state) and player positions (track_id, zone, jersey_number, team colour) at 16fps. Output: `*_physics.json`.
+- **Step 2 (Python):** [physics_to_events.py](physics_to_events.py) infers team roles and derives events. Output: `*_events.json`.
+- **Ontological Separation**: Raw physics frames (observable facts) vs tactical events (inferred sequences). This reduces VLM hallucination and improves UI clarity.
 - **Track ID System:** Persistent player IDs (t1, t2, t3...) with optional jersey numbers when readable.
-- **49-Zone System:** Fine-grained spatial tracking with 6 depth bands (6m-7m, 7m-8m, ..., 11m-12m) × 8 lateral positions.
-- **Adjacency Validation:** [validate_physics_output.py](validate_physics_output.py) ensures players only move to adjacent zones at 16fps.
+- **14-Zone System:** z0 (goal), z1-z5 (6m-8m), z6-z10 (8m-10m), z11-z13 (10m+). See [physics_prompt.md](prompts/physics_prompt.md).
 - **S3 Integration:** [gemini_s3_analyzer.py](gemini_s3_analyzer.py) streams videos from AWS S3 with automatic cleanup.
-- **See:** [README_PHYSICS_ANALYZER.md](README_PHYSICS_ANALYZER.md) and [README_S3_INTEGRATION.md](README_S3_INTEGRATION.md) for usage guides.
+
+**Inference Modules** (`inference/`):
+- [inference/team_classifier.py](inference/team_classifier.py): Multi-signal team classification. Scores each jersey colour using ball possession (0.45), GK proximity (0.25), zone depth (0.20), defensive formation (0.10) to determine attacking/defending teams. Never hardcode colour→role mappings.
+- [inference/event_detector.py](inference/event_detector.py): State-machine event detection. Tracks `_last_holder` across In-Air frames to detect PASS, SHOT, TURNOVER (STEAL/LOST_BALL/OUT_OF_BOUNDS), and MOVE events.
+- [inference/role_assigner.py](inference/role_assigner.py): Zone-based role assignment. Wings (z1/z5), pivot (z2-z4), backs (z6-z10 sorted L→R), defence (sorted L→R as DL1-DR1).
 
 ### 3. Domain Knowledge Layer
 
-**Master Prompt (Inference-Based):** [gemini_context_zones.md](gemini_context_zones.md)
-- Defines **14 spatial zones** (z0-z13) mapped to handball court geometry
-- Defines **7 defensive roles** (DL1, DL2, DL3, DR3, DR2, DR1, ADV)
-- Enforces strict handball logic: passes are teammate-to-teammate, fake detection, shot outcome rules
+**Physics Prompt (Active):** [prompts/physics_prompt.md](prompts/physics_prompt.md)
+- Defines **14-zone system** (z0-z13) for spatial tracking
+- Track ID-based player tracking with optional jersey numbers and team colours
+- NO event inference — only observable physics (ball holder, zones, states)
+- Forbidden vocabulary list to prevent VLM hallucination
 - **Critical Rule:** All zone references must be strings with "z" prefix (e.g., `"zone": "z10"`, NOT `"zone": 10`)
 
-**Physics-Only Prompt (NEW):** [physics_prompt.md](physics_prompt.md)
-- Defines **49-zone system** (z0 + z{depth}_{lateral}, e.g., z3_4 = 8-9m depth, center)
-- Track ID-based player tracking with optional jersey numbers
-- NO event inference - only observable physics (ball holder, zones, states)
-- Forbidden vocabulary list to prevent VLM hallucination
-- Adjacency constraints enforced during validation
+**Legacy Prompt (Archived):** [archive/prompts/gemini_context_zones.md](archive/prompts/gemini_context_zones.md)
+- Was used by legacy pipelines (gemini_cache_analyzer v1, openrouter, batch analyzer)
+- Contained event-level inference instructions (now handled by Python in Stage 2)
+- Zone definitions were updated to 14 zones but the file is no longer loaded by active code
 
 **Match Context Files:**
 - [match_context.json](match_context.json), [GerIsl.json](GerIsl.json), [JapArg.json](JapArg.json): Team colors, jersey mappings, match metadata
 - Injected into prompts to help VLM distinguish teams
 
-### 4. Frontend (Web Verification App)
-- [verification_app/static/index.html](verification_app/static/index.html): Video input, job controls, results dashboard
-- [verification_app/static/app.js](verification_app/static/app.js): Polls server for status, renders verification UI
-- [verification_app/static/style.css](verification_app/static/style.css): Dark mode styling
+### 4. Physics Visualizer (Primary UI)
+- [physics_visualizer/server.py](physics_visualizer/server.py): FastAPI backend (port 8001), serves analysis JSON and video URLs
+- [physics_visualizer/static/app.js](physics_visualizer/static/app.js): Timeline, event filtering, video sync, court updates
+- [physics_visualizer/static/court-renderer.js](physics_visualizer/static/court-renderer.js): 14-zone polygonal court rendering with player markers
+- [physics_visualizer/static/style.css](physics_visualizer/static/style.css): Dark mode, CSS Grid responsive layout
+- [physics_visualizer/static/index.html](physics_visualizer/static/index.html): Three-panel layout (video, court, timeline)
+- **Unified Timeline**: Shows physics frame cards (with transition chips for holder/zone/state changes) interleaved with inferred event cards. Filterable: All / Changes / Events.
+
+### 5. Legacy Verification App (Archive)
+- [verification_app/](verification_app/): MLX-VLM based web app for local Apple Silicon inference. Still functional but not the primary workflow.
 
 ## Key Design Patterns & Constraints
 
@@ -188,23 +197,25 @@ ruff format .
 ### Adding a New VLM Provider
 1. Create new analyzer script (e.g., `new_provider_analyzer.py`)
 2. Implement frame extraction (use `cv2.VideoCapture` or reuse `processor.extract_frames()`)
-3. Load [gemini_context_zones.md](gemini_context_zones.md) as base prompt
+3. Load [prompts/physics_prompt.md](prompts/physics_prompt.md) as base prompt
 4. Inject match context from JSON files
 5. Parse response with `extract_json()` utility (handles markdown code blocks)
 6. Validate against schema in [handball_zones_definition.md](handball_zones_definition.md)
 
 ### Debugging Analysis Quality
 1. Check [LEARNINGS.md](LEARNINGS.md) for known prompt engineering issues
-2. Verify zone definitions match [gemini_context_zones.md](gemini_context_zones.md)
-3. Use [visualize_analysis.py](visualize_analysis.py) to render analysis overlays on video
-4. Common issues:
+2. Verify zone definitions match [prompts/physics_prompt.md](prompts/physics_prompt.md)
+3. Use the physics visualizer to inspect frame-by-frame state and transitions
+4. Run `pytest tests/ -v` to verify inference logic
+5. Common issues:
+   - **Wrong team classification**: Check `metadata.team_classification` in events JSON. The multi-signal classifier should handle most cases. If wrong, verify the physics JSON has correct team colours and ball holder tracking.
+   - **Missing passes**: The EventDetector needs consecutive frames with different holders. Check for In-Air gaps that break the holder chain.
+   - **Wrong roles**: Check zone-to-position mapping in `role_assigner.py`. z1=right wing, z5=left wing (attacker's perspective).
    - Fake pass detection: Check if prompt includes "LOOK AHEAD" instruction
-   - Wrong team identification: Ensure "Observe Before Interpret" pattern in prompt
-   - Zone teleportation: Add sanity check step to prompt
-   - Dribble vs pass confusion: Explicitly define "In-Air (Bounce)" vs "In-Air (Pass)" states
+   - Zone teleportation: Verify frame-to-frame zone changes are adjacent
 
 ### Modifying Handball Logic
-- Edit [gemini_context_zones.md](gemini_context_zones.md) (master prompt)
+- Edit [prompts/physics_prompt.md](prompts/physics_prompt.md) (active VLM prompt)
 - Update [verification_app/server.py](verification_app/server.py) (MLX-VLM prompt injection around line 118)
 - Update ANALYSIS_TASKS dict in [gemini_cache_analyzer.py](gemini_cache_analyzer.py) and [openrouter_analyzer.py](openrouter_analyzer.py)
 - Test with known sequences to verify logic changes
@@ -239,9 +250,10 @@ All scripts prioritize environment variables over `.env` files.
 - **Gemini 2.0 Flash:** ~10-30s per analysis
 
 ## Documentation Files
-- [HANDOVER.md](HANDOVER.md): Current state summary, onboarding guide for new agents
-- [LEARNINGS.md](LEARNINGS.md): Critical knowledge base on prompt engineering, MLX memory limits, batch optimization
-- [INDEX.md](INDEX.md): File reference guide
-- [README_GEMINI_BATCH.md](README_GEMINI_BATCH.md): Gemini batch analyzer user manual
-- [README_PHYSICS_ANALYZER.md](README_PHYSICS_ANALYZER.md): Physics-only analyzer guide with 49-zone system
-- [README_S3_INTEGRATION.md](README_S3_INTEGRATION.md): AWS S3 streaming integration guide
+- [HANDOVER.md](HANDOVER.md): **Start here** — current state, architecture, and onboarding guide
+- [QUICKSTART.md](QUICKSTART.md): Minimal commands to run the pipeline
+- [LEARNINGS.md](LEARNINGS.md): Critical knowledge base on prompt engineering, team classification, MLX memory limits
+- [docs/INDEX.md](docs/INDEX.md): File reference guide
+- [docs/README_PHYSICS_ANALYZER.md](docs/README_PHYSICS_ANALYZER.md): Physics analyzer guide
+- [docs/README_S3_INTEGRATION.md](docs/README_S3_INTEGRATION.md): AWS S3 streaming integration guide
+- [docs/QUICKSTART_VISUALIZER.md](docs/QUICKSTART_VISUALIZER.md): Visualizer troubleshooting

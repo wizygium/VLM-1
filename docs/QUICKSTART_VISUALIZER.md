@@ -1,223 +1,69 @@
-# Quick Start Guide - Physics Visualizer
+# Quick Start: Physics Visualizer
 
-## Issue: Can't Load Page
-
-If you can't load the visualization page at http://127.0.0.1:8001, follow these steps:
-
-### Step 1: Check if Server is Running
-
-Open a terminal and run:
+## Start the Server
 ```bash
-lsof -i :8001
+cd physics_visualizer && python server.py
+# Open http://127.0.0.1:8001
 ```
 
-**If you see output**: The server is running. Skip to Step 3.
-**If no output**: The server is not running. Continue to Step 2.
-
-### Step 2: Start the Server
-
-Open a terminal in the project directory and run:
-
+Or with the virtual environment:
 ```bash
-cd /workspaces/VLM-1
-./start_visualizer.sh
+.venv/bin/python3 physics_visualizer/server.py
 ```
 
-Or manually:
-```bash
-cd /workspaces/VLM-1/physics_visualizer
-python3 server.py
-```
+## What You'll See
 
-You should see output like:
-```
-============================================================
-Handball Physics Visualizer
-============================================================
-Results directory: /workspaces/VLM-1/results_physics
-S3 client available: True
+The visualizer has three panels:
+1. **Video** (left): Synced video playback from local files or S3
+2. **Court Simulation** (center): 14-zone handball court with player markers
+3. **Timeline** (right): Unified timeline of physics frames and inferred events
 
-Starting server at http://127.0.0.1:8001
-============================================================
-INFO:     Started server process [...]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8001
-```
+### Timeline Features
+- **Physics frame cards**: Show ball state, holder, zone, and transition chips (catch/release/transfer/zone-change)
+- **Inferred event cards**: PASS, SHOT, MOVE, TURNOVER with from/to details
+- **Filter bar**: All / Changes only / Events only
+- **Auto-scroll**: Active frame stays visible during playback
 
-### Step 3: Test the Server
-
-In another terminal, test if the server is responding:
-
+## Check Server Health
 ```bash
 curl http://127.0.0.1:8001/api/health
 ```
 
-Expected response:
-```json
-{
-  "status": "healthy",
-  "s3_available": true,
-  "results_dir": "/workspaces/VLM-1/results_physics",
-  "results_dir_exists": true
-}
-```
-
-### Step 4: Test Available Analyses
-
+## Check Available Analyses
 ```bash
 curl http://127.0.0.1:8001/api/analyses
 ```
 
-Should return:
-```json
-{
-  "analyses": [
-    {
-      "name": "ADF-Scene-001",
-      "physics_file": "/workspaces/VLM-1/results_physics/ADF-Scene-001_physics.json",
-      "events_file": "/workspaces/VLM-1/results_physics/ADF-Scene-001_events.json",
-      "s3_uri": "s3://...",
-      "total_frames": 24,
-      "duration": 1.5,
-      "unique_players": 12
-    }
-  ]
-}
-```
-
-### Step 5: Open in Browser
-
-Open your browser and navigate to:
-```
-http://127.0.0.1:8001
-```
-
-OR use VS Code's Simple Browser:
-- Press `Ctrl+Shift+P` (Cmd+Shift+P on Mac)
-- Type "Simple Browser"
-- Select "Simple Browser: Show"
-- Enter URL: `http://127.0.0.1:8001`
-
-### Step 6: Test the UI
-
-1. **Select Analysis**: Choose "ADF-Scene-001" from dropdown
-2. **Check Browser Console**: Press F12 to open DevTools
-3. **Look for Errors**: Check the Console tab for any red errors
+The server scans `data/analyses/` for `*_physics.json` and `*_events.json` files.
 
 ## Common Issues
 
-### Issue: Port Already in Use
-
+### Port Already in Use
 ```bash
-# Find and kill the process
 lsof -i :8001
 kill -9 <PID>
-
-# Or kill all python processes on that port
-pkill -f "python.*server.py"
 ```
 
-### Issue: Module Import Errors
-
+### Missing Dependencies
 ```bash
-# Install missing dependencies
 pip install fastapi uvicorn boto3
 ```
 
-### Issue: S3 Video Won't Load
+### Video Won't Load
+- The server first checks for local video files in `data/videos/`
+- If not found, it tries S3 presigned URLs (requires AWS credentials)
+- If neither available, the UI still loads with court and timeline — video panel shows placeholder
 
-```bash
-# Configure AWS credentials
-aws configure
+### Browser Shows Stale UI
+Hard refresh: `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows/Linux)
 
-# Test S3 access
-aws s3 ls s3://sagemaker-us-east-1-086355358526/data/raw_scenes/ADF/
-```
+## Verification Checklist
 
-### Issue: Blank Court or No Players Rendering
-
-This was **FIXED** in the recent update. Make sure you:
-1. Hard refresh browser: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac)
-2. Clear browser cache
-3. The fix corrected inverted zone coordinates
-
-## Verification Steps
-
-After loading an analysis, verify:
-
-✅ Video player appears and loads  
-✅ Court grid displays with 49 zones  
-✅ Players render as colored circles with jersey numbers  
-✅ Blue team shows as blue circles  
-✅ White team shows as white/gray circles  
-✅ Ball holder has red border  
-✅ Events list shows on the right  
-✅ Timeline scrubber works  
-
-## Manual Server Start (Detailed)
-
-If the script doesn't work, start manually:
-
-```bash
-# Navigate to visualizer directory
-cd /workspaces/VLM-1/physics_visualizer
-
-# Start Python server
-python3 server.py
-```
-
-Keep this terminal open. The server will run and show logs.
-
-In another terminal or browser, access: http://127.0.0.1:8001
-
-## Debugging Commands
-
-```bash
-# Check all dependencies
-python3 -c "import fastapi, uvicorn, boto3; print('All OK')"
-
-# Check results directory
-ls -lh /workspaces/VLM-1/results_physics/
-
-# View physics JSON
-cat /workspaces/VLM-1/results_physics/ADF-Scene-001_physics.json | python3 -m json.tool | head -50
-
-# Test server endpoint directly
-curl -v http://127.0.0.1:8001/
-
-# Check static files
-ls -lh /workspaces/VLM-1/physics_visualizer/static/
-```
-
-## What Was Fixed
-
-**Bug**: Zone coordinates were inverted (players rendering upside-down on court)
-**Fix**: Corrected y-coordinate calculation in `court-renderer.js`
-**Status**: ✅ Fixed (2026-01-31)
-
-See `VISUALIZATION_FIXES.md` for details.
-
-## Need Help?
-
-1. Check `DEBUG_VISUALIZER.md` for comprehensive debugging guide
-2. Check `README_VISUALIZER.md` for feature documentation
-3. Ensure you've refreshed the browser after the fix
-
----
-
-**Quick Command Reference:**
-
-```bash
-# Start server
-cd /workspaces/VLM-1 && ./start_visualizer.sh
-
-# Test health
-curl http://127.0.0.1:8001/api/health
-
-# Check port
-lsof -i :8001
-
-# Kill server
-pkill -f "python.*physics_visualizer"
-```
+After loading an analysis:
+- Video player appears (or placeholder if no video)
+- 14-zone court renders with curved D-lines
+- Players shown as coloured circles with track IDs
+- Ball holder has red border highlight
+- Timeline shows physics frames and events
+- Scrubbing the video updates court and timeline
+- Clicking a timeline card seeks the video to that timestamp
