@@ -87,7 +87,11 @@ NOTES :
 
 ## YOUR TASK
 
-For EACH frame (every 0.0625 seconds at 16fps):
+**TEMPORAL RESOLUTION:** Report at a MINIMUM of 4fps (every 0.25 seconds).
+During any change of ball state, holder, or player zone, report at the full
+video frame rate. NEVER leave a gap longer than 0.25 seconds between frames.
+
+For EACH reported frame:
 
 1. **Ball State:**
    - holder_track_id: Which player's track ID has the ball (or null if loose/in-air)
@@ -111,6 +115,7 @@ For EACH frame (every 0.0625 seconds at 16fps):
 3. **NO PREDICTIONS:** Do not anticipate what will happen next
 4. **TRACK ID PERSISTENCE:** Same player MUST keep same track_id across all frames
 5. **ZONE FORMAT:** Always "z" followed by zone number (e.g., z8, z3, NOT "zone 8" or z08)
+6. **ZONE CONTINUITY:** A player moving between distant zones MUST pass through intermediate zones. For example, z12→z3 is impossible in one frame — report z12→z8→z3 across multiple frames.
 
 ## FORBIDDEN VOCABULARY
 

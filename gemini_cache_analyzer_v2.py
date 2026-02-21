@@ -100,7 +100,7 @@ ANALYSIS_TASKS = {
     # Step 2: Ball State Timeline
     "2_ball_state": """
     TASK: BALL STATE TIMELINE (PHYSICS ONLY)
-    Objective: Track the ball's holder and state across all frames.
+    Objective: Track the ball's holder and state at high temporal resolution.
     
     CONSTRAINTS:
     - Do NOT use words like "Pass", "Shot", "Feint", or "Assist"
@@ -108,8 +108,13 @@ ANALYSIS_TASKS = {
     - Use strictly "z" prefixed zones (e.g., z8, z3)
     - Use TRACK IDs (t1, t2, t3...) NOT role names
     
-    Format per timestamp (every ~0.0625s at 16fps, or every change of state):
-    - [Time] Ball Holder: [track_id] | Zone: [z0-z15] | Status: [Holding/Dribbling/In-Air/Loose]
+    TEMPORAL RESOLUTION:
+    - Report EVERY change of ball state, holder, or zone — no matter how brief
+    - At minimum, report one entry every 0.25 seconds (4fps) even if nothing changes
+    - During ball transitions (holder changes, in-air travel), report at full frame rate
+    
+    Format per timestamp:
+    - [Time] Ball Holder: [track_id] | Zone: [z0-z13] | Status: [Holding/Dribbling/In-Air/Loose]
     
     Ball States:
     - Holding: Player gripping ball, ball stationary in hands
@@ -118,18 +123,26 @@ ANALYSIS_TASKS = {
     - Loose: Ball on ground, no player contact
     
     Example:
-    - [0.00s] Ball Holder: t1 | Zone: z8 | Status: Holding
+    - [0.00s] Ball Holder: t1 | Zone: z12 | Status: Holding
+    - [0.25s] Ball Holder: t1 | Zone: z8 | Status: Holding
     - [0.50s] Ball Holder: t1 | Zone: z8 | Status: Holding
-    - [1.00s] Ball Holder: null | Zone: z7 | Status: In-Air
-    - [1.20s] Ball Holder: t3 | Zone: z3 | Status: Holding
+    - [0.75s] Ball Holder: null | Zone: z7 | Status: In-Air
+    - [1.00s] Ball Holder: t3 | Zone: z3 | Status: Holding
     """,
 
     # Step 3: Player Position Timeline
     "3_positions": """
     TASK: PLAYER POSITION TIMELINE
-    Objective: Track all visible player positions across key frames.
+    Objective: Track all visible player positions at HIGH temporal resolution.
     
-    For timestamps at ~0.5s intervals, list ALL visible players:
+    IMPORTANT: Report player positions at EVERY timestamp where ANY player 
+    changes zone. At minimum, report one frame every 0.25 seconds (4fps).
+    During fast movement, report at the full video frame rate.
+    
+    If no player changes zone between two frames, you may skip that frame.
+    But NEVER leave a gap longer than 0.25 seconds between reported frames.
+    
+    For each reported frame, list ALL visible players:
     - Use the same track_id assigned in Step 1
     - Record zone (z0-z13)
     - Note jersey number if visible (or null)
@@ -144,6 +157,8 @@ ANALYSIS_TASKS = {
     ```
     
     CRITICAL: Track IDs must remain consistent across all frames!
+    CRITICAL: A player moving from z12 to z3 MUST pass through intermediate 
+    zones (e.g., z12→z8→z3). Report these intermediate positions!
     """,
 
     # Step 4: Sanity Check

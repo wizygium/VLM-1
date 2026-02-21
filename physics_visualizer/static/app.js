@@ -345,6 +345,7 @@ function renderCurrentFrame() {
 
     // Update active event highlighting
     updateActiveEvent(frame.timestamp);
+    updateActiveIntervals(frame.timestamp);
 }
 
 /**
@@ -498,7 +499,12 @@ function createInferredEventCard(event) {
     const typeLine = document.createElement('div');
     typeLine.className = 'event-type';
     const displayType = typeStr === 'MOVEMENT' ? 'MOVE' : typeStr;
-    typeLine.textContent = `${displayType} @ ${parseFloat(event.time).toFixed(1)}s`;
+    const startT = parseFloat(event.startTime || event.time);
+    const endT = parseFloat(event.endTime || event.time);
+    const rangeStr = startT === endT
+        ? `@ ${startT.toFixed(2)}s`
+        : `${startT.toFixed(2)}s\u2013${endT.toFixed(2)}s`;
+    typeLine.textContent = `${displayType} ${rangeStr}`;
 
     const details = document.createElement('div');
     details.className = 'event-details';
@@ -585,13 +591,14 @@ function displayEvents() {
 
     // 2. Inferred events (from events JSON)
     events.forEach(e => {
-        const eventTime = parseFloat(e.start_time || e.time);
+        const actionTime = e.action_time != null ? parseFloat(e.action_time) : parseFloat(e.start_time || e.time);
         timeline.push({
             type: 'event',
-            time: eventTime,
+            time: actionTime,
             event: {
                 ...e,
-                time: eventTime,
+                time: actionTime,
+                actionTime: e.action_time,
                 startTime: e.start_time || e.time,
                 endTime: e.end_time || e.time
             }
@@ -623,6 +630,9 @@ function displayEvents() {
 
     // Apply current filter
     applyTimelineFilter();
+
+    // Render event intervals on the timeline scrubber bar
+    renderEventIntervals();
 }
 
 /**
@@ -729,21 +739,95 @@ function renderPlayerCard(player) {
 }
 
 /**
- * Seek to event time
+ * Get total analysis duration in seconds
  */
-function seekToEvent(event) {
-    if (!physicsData) return;
+function getAnalysisDuration() {
+    const frames = (physicsData && physicsData.frames) || [];
+    if (frames.length === 0) return 0;
+    return parseFloat(frames[frames.length - 1].timestamp || 0);
+}
 
-    const eventTime = parseFloat(event.time);
+/**
+ * Render event interval markers on the timeline track
+ */
+function renderEventIntervals() {
+    const container = document.getElementById('event-intervals');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const events = (eventsData && eventsData.events) || [];
+    const duration = getAnalysisDuration();
+    if (duration <= 0 || events.length === 0) return;
+
+    events.forEach(event => {
+        const start = parseFloat(event.start_time || 0);
+        const end = parseFloat(event.end_time || start);
+        const actionTime = event.action_time != null ? parseFloat(event.action_time) : (start + end) / 2;
+        const type = (event.type || '').toLowerCase();
+
+        const left = (start / duration) * 100;
+        const width = Math.max(((end - start) / duration) * 100, 0.5);
+
+        const bar = document.createElement('div');
+        bar.className = `event-interval ${type}`;
+        bar.style.left = `${left}%`;
+        bar.style.width = `${width}%`;
+        bar.dataset.eventId = event.event_id;
+        bar.dataset.startTime = start;
+        bar.dataset.endTime = end;
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'event-interval-tooltip';
+        const label = formatEventLabel(event);
+        tooltip.textContent = `${label} (${start.toFixed(2)}s\u2013${end.toFixed(2)}s)`;
+        bar.appendChild(tooltip);
+
+        bar.onclick = () => {
+            seekToTime(actionTime);
+        };
+
+        container.appendChild(bar);
+    });
+}
+
+/**
+ * Format a short label for an event (used in tooltip)
+ */
+function formatEventLabel(event) {
+    const type = (event.type || '').toUpperCase();
+    if (type === 'PASS') return `PASS ${event.from_role || '?'}\u2192${event.to_role || '?'}`;
+    if (type === 'SHOT') return `SHOT ${event.from_role || '?'} ${event.outcome || ''}`;
+    if (type === 'TURNOVER') return `TURNOVER (${event.turnover_type || '?'})`;
+    if (type === 'MOVE') return `MOVE ${event.role || '?'} z${event.from_zone}\u2192z${event.to_zone}`;
+    return type;
+}
+
+/**
+ * Highlight active event interval on the timeline track
+ */
+function updateActiveIntervals(timestamp) {
+    const time = parseFloat(timestamp);
+    const bars = document.querySelectorAll('.event-interval');
+    bars.forEach(bar => {
+        const start = parseFloat(bar.dataset.startTime);
+        const end = parseFloat(bar.dataset.endTime);
+        bar.classList.toggle('active', time >= start && time <= end);
+    });
+}
+
+/**
+ * Seek video + court to a specific timestamp (seconds)
+ */
+function seekToTime(targetTime) {
+    if (!physicsData) return;
     const frames = physicsData.frames || [];
 
-    // Find closest frame
     let closestIndex = 0;
     let closestDiff = Infinity;
 
     frames.forEach((frame, index) => {
         const frameTime = parseFloat(frame.timestamp || 0);
-        const diff = Math.abs(frameTime - eventTime);
+        const diff = Math.abs(frameTime - targetTime);
         if (diff < closestDiff) {
             closestDiff = diff;
             closestIndex = index;
@@ -752,6 +836,23 @@ function seekToEvent(event) {
 
     currentFrameIndex = closestIndex;
     renderCurrentFrame();
+
+    if (videoSyncEnabled && videoPlayer) {
+        videoPlayer.currentTime = targetTime;
+    }
+}
+
+/**
+ * Seek to event using action_time (midpoint) for accurate sync
+ */
+function seekToEvent(event) {
+    if (!physicsData) return;
+
+    const actionTime = event.actionTime != null
+        ? parseFloat(event.actionTime)
+        : (parseFloat(event.startTime || event.time) + parseFloat(event.endTime || event.time)) / 2;
+
+    seekToTime(actionTime);
 }
 
 /**

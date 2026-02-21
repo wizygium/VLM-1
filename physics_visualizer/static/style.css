@@ -435,8 +435,75 @@ canvas {
     font-family: monospace;
 }
 
+.timeline-track-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    position: relative;
+}
+
+.event-intervals {
+    position: relative;
+    height: 14px;
+    width: 100%;
+    border-radius: 3px;
+    background: #2a2a2a;
+    overflow: hidden;
+}
+
+.event-interval {
+    position: absolute;
+    top: 1px;
+    height: 12px;
+    border-radius: 2px;
+    opacity: 0.8;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.15s;
+    min-width: 4px;
+}
+
+.event-interval:hover {
+    opacity: 1;
+    transform: scaleY(1.3);
+    z-index: 2;
+}
+
+.event-interval.active {
+    opacity: 1;
+    outline: 1px solid white;
+    z-index: 3;
+}
+
+.event-interval.pass { background: #4ade80; }
+.event-interval.shot { background: #f87171; }
+.event-interval.move { background: rgba(96, 165, 250, 0.4); }
+.event-interval.turnover { background: #facc15; }
+
+.event-interval-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e1e1e;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+    pointer-events: none;
+    display: none;
+    z-index: 10;
+}
+
+.event-interval:hover .event-interval-tooltip {
+    display: block;
+}
+
 input[type="range"] {
     flex: 1;
+    width: 100%;
     accent-color: var(--accent);
     cursor: pointer;
 }

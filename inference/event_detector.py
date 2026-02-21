@@ -39,12 +39,18 @@ class Event:
     outcome: Optional[str] = None  # For SHOT events
     turnover_type: Optional[str] = None  # For TURNOVER: STEAL, OUT_OF_BOUNDS, LOST_BALL
 
+    @property
+    def action_time(self) -> float:
+        """Estimated moment the action occurs — midpoint of the bounding frames."""
+        return (float(self.start_time) + float(self.end_time)) / 2
+
     def to_dict(self) -> Dict[str, Any]:
         result = {
             "event_id": self.event_id,
             "type": self.type.value,
             "start_time": self.start_time,
             "end_time": self.end_time,
+            "action_time": self.action_time,
         }
 
         if self.type == EventType.PASS:
@@ -252,7 +258,14 @@ class EventDetector:
             return events
 
         # --- 2. Loose ball (possession lost) ---
-        if state_n1.lower() == "loose" and state_n.lower() != "loose":
+        # Suppress when: (a) previous state was In-Air — ball just landed mid-pass,
+        # or (b) ball entered goal zone z0 — that's a shot, not a turnover.
+        zone_n1 = self._normalize_zone(ball_n1.get("zone"))
+        if (
+            state_n1.lower() == "loose"
+            and state_n.lower() not in ("loose", "in-air")
+            and zone_n1 != 0
+        ):
             events.append(Event(
                 event_id=self._next_event_id(),
                 type=EventType.TURNOVER,
@@ -262,7 +275,6 @@ class EventDetector:
                 from_role=self.roles.get(self._last_holder) if self._last_holder else None,
                 turnover_type="LOST_BALL",
             ))
-            # Don't clear last_holder — shot detection may still reference it
 
         # --- 3. Shot into goal zone ---
         shot = self.detect_shot(frame_n, frame_n1)

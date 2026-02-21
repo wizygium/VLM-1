@@ -85,7 +85,10 @@
 
             <div class="timeline-group">
                 <span id="current-time">0.00s</span>
-                <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="0.1">
+                <div class="timeline-track-container">
+                    <div id="event-intervals" class="event-intervals"></div>
+                    <input type="range" id="timeline-scrubber" min="0" max="100" value="0" step="0.1">
+                </div>
                 <span id="info-duration-display">0.00s</span>
             </div>
 

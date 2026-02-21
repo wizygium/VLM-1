@@ -222,8 +222,20 @@ class TestTurnoverDetection:
         assert turnovers[0].turnover_type == "OUT_OF_BOUNDS"
         assert turnovers[0].from_track_id == "t1"
 
-    def test_loose_ball(self):
-        """TC-C3: Holding → In-Air → Loose → TURNOVER (LOST_BALL)."""
+    def test_loose_ball_direct_fumble(self):
+        """TC-C3: Holding → Loose (direct fumble) → TURNOVER (LOST_BALL)."""
+        frames = [
+            _make_frame(0.0, "t1", 7, "Holding"),
+            _make_frame(0.5, None, 5, "Loose"),
+        ]
+        events = _run_detector(frames)
+        turnovers = _events_of_type(events, EventType.TURNOVER)
+        assert len(turnovers) == 1
+        assert turnovers[0].turnover_type == "LOST_BALL"
+        assert turnovers[0].from_track_id == "t1"
+
+    def test_in_air_to_loose_no_lost_ball(self):
+        """TC-C3b: Holding → In-Air → Loose → no LOST_BALL (ball just landed)."""
         frames = [
             _make_frame(0.0, "t1", 7, "Holding"),
             _make_frame(0.5, None, 6, "In-Air"),
@@ -231,9 +243,7 @@ class TestTurnoverDetection:
         ]
         events = _run_detector(frames)
         turnovers = _events_of_type(events, EventType.TURNOVER)
-        assert len(turnovers) == 1
-        assert turnovers[0].turnover_type == "LOST_BALL"
-        assert turnovers[0].from_track_id == "t1"
+        assert len(turnovers) == 0
 
     def test_in_air_end_of_clip(self):
         """TC-C4: Holding → In-Air (clip ends) → no crash, no false PASS."""
@@ -245,6 +255,86 @@ class TestTurnoverDetection:
         passes = _events_of_type(events, EventType.PASS)
         turnovers = _events_of_type(events, EventType.TURNOVER)
         assert len(passes) == 0
+        assert len(turnovers) == 0
+
+    def test_shot_into_z0_no_lost_ball(self):
+        """TC-34-1: Holding z3 → Loose z0 → SHOT only, no LOST_BALL."""
+        frames = [
+            _make_frame(0.0, "t1", 3, "Holding"),
+            _make_frame(0.5, None, 0, "Loose"),
+        ]
+        events = _run_detector(frames)
+        shots = _events_of_type(events, EventType.SHOT)
+        turnovers = _events_of_type(events, EventType.TURNOVER)
+        assert len(shots) == 1
+        assert shots[0].from_track_id == "t1"
+        assert shots[0].outcome == "ON_TARGET"
+        assert len(turnovers) == 0
+
+    def test_pass_via_loose_no_lost_ball(self):
+        """TC-34-2: Pass where ball briefly lands (Loose) before receiver catches."""
+        frames = [
+            _make_frame(0.0, "t1", 7, "Holding"),
+            _make_frame(0.5, None, 5, "In-Air"),
+            _make_frame(1.0, None, 3, "Loose"),
+            _make_frame(1.5, "t2", 3, "Holding"),
+        ]
+        events = _run_detector(frames, attacker_ids={"t1", "t2"})
+        passes = _events_of_type(events, EventType.PASS)
+        turnovers = _events_of_type(events, EventType.TURNOVER)
+        assert len(passes) == 1
+        assert passes[0].from_track_id == "t1"
+        assert passes[0].to_track_id == "t2"
+        assert len(turnovers) == 0
+
+    def test_dribble_to_loose_is_lost_ball(self):
+        """TC-34-3: Dribbling → Loose is a genuine fumble → LOST_BALL."""
+        frames = [
+            _make_frame(0.0, "t1", 7, "Dribbling"),
+            _make_frame(0.5, None, 7, "Loose"),
+        ]
+        events = _run_detector(frames)
+        turnovers = _events_of_type(events, EventType.TURNOVER)
+        assert len(turnovers) == 1
+        assert turnovers[0].turnover_type == "LOST_BALL"
+        assert turnovers[0].from_track_id == "t1"
+
+
+# ===========================================================================
+# D. GI17scenes-Scene-009 Regression
+# ===========================================================================
+
+class TestGI17Scene009Regression:
+    """TC-34-4: Full regression test against GI17scenes-Scene-009 ball timeline."""
+
+    def test_pass_and_shot_no_turnover(self):
+        """Full 9-frame sequence: expect 1 PASS, 1 SHOT, 0 turnovers."""
+        frames = [
+            _make_frame(0.00, "t1", 9, "Holding"),
+            _make_frame(0.50, "t1", 9, "Holding"),
+            _make_frame(1.00, "t1", 3, "Holding"),
+            _make_frame(1.50, "t2", 3, "Holding"),
+            _make_frame(2.00, "t2", 3, "Holding"),
+            _make_frame(2.50, None, 0, "Loose"),
+            _make_frame(3.00, None, 0, "Loose"),
+            _make_frame(3.50, None, 0, "Loose"),
+            _make_frame(4.00, None, 0, "Loose"),
+        ]
+        roles = {"t1": "CB", "t2": "PV"}
+        events = _run_detector(frames, attacker_ids={"t1", "t2"}, roles=roles)
+
+        passes = _events_of_type(events, EventType.PASS)
+        shots = _events_of_type(events, EventType.SHOT)
+        turnovers = _events_of_type(events, EventType.TURNOVER)
+
+        assert len(passes) == 1
+        assert passes[0].from_track_id == "t1"
+        assert passes[0].to_track_id == "t2"
+
+        assert len(shots) == 1
+        assert shots[0].from_track_id == "t2"
+        assert shots[0].from_role == "PV"
+
         assert len(turnovers) == 0
 
 

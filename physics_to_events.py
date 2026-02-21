@@ -22,6 +22,7 @@ from inference import (
     PlayerPosition,
     EventDetector,
     determine_attacking_team,
+    validate_zone_transitions,
 )
 
 
@@ -199,6 +200,9 @@ def transform_physics_to_events(physics_data: Dict, source_path: Path) -> Dict:
         
         enriched_frames.append(enriched)
     
+    # Validate zone transitions (detect teleports)
+    zone_warnings = validate_zone_transitions(frames)
+
     result_metadata = {
         "video": metadata.get("video", physics_data.get("video", "")),
         "source_physics": str(source_path),
@@ -210,6 +214,9 @@ def transform_physics_to_events(physics_data: Dict, source_path: Path) -> Dict:
     }
     if classification_meta:
         result_metadata["team_classification"] = classification_meta
+    if zone_warnings:
+        result_metadata["zone_warnings"] = [w.to_dict() for w in zone_warnings]
+        result_metadata["zone_warning_count"] = len(zone_warnings)
 
     return {
         "metadata": result_metadata,
@@ -261,6 +268,17 @@ def main(physics_json_path: str, output: str, verbose: bool):
     click.echo(f"   Roster: {n_attack} attackers, {n_defense} defenders")
     click.echo(f"   Events: {n_events} detected")
     
+    # Zone warnings
+    zone_warns = events_data['metadata'].get('zone_warnings', [])
+    if zone_warns:
+        click.echo(f"   ⚠️  Zone teleports: {len(zone_warns)} detected")
+        if verbose:
+            for w in zone_warns:
+                click.echo(
+                    f"      {w['track_id']}: z{w['zone_from']}→z{w['zone_to']} "
+                    f"({w['timestamp_from']}s→{w['timestamp_to']}s)"
+                )
+
     if verbose and events_data['events']:
         click.echo("\n📋 Events:")
         for e in events_data['events'][:10]:

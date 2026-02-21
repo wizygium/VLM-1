@@ -8,6 +8,7 @@ from .role_assigner import (
 )
 from .event_detector import EventDetector, Event, EventType
 from .team_classifier import determine_attacking_team, TeamClassification
+from .zone_validator import validate_zone_transitions, ZoneWarning, are_adjacent, ZONE_ADJACENCY
 
 __all__ = [
     "assign_attack_roles",
@@ -19,4 +20,8 @@ __all__ = [
     "EventType",
     "determine_attacking_team",
     "TeamClassification",
+    "validate_zone_transitions",
+    "ZoneWarning",
+    "are_adjacent",
+    "ZONE_ADJACENCY",
 ]
